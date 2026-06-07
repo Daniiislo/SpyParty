@@ -6,6 +6,7 @@ import {
   SignUpButton,
   UserButton,
 } from "@clerk/nextjs";
+import { viVN } from "@clerk/localizations";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { VenetianMask } from "lucide-react";
@@ -28,6 +29,35 @@ export const metadata: Metadata = {
     "Nhận từ bí mật, mô tả thật khéo, và lật mặt kẻ giả danh. Trò chơi suy luận xã hội cho nhóm bạn — chơi online hoặc offline.",
 };
 
+// Theme Clerk's UI (modals, UserButton menu) to match the "Classified Dossier"
+// dark palette: warm charcoal surfaces, amber primary, crimson danger, Geist font.
+// NOTE: this clerk-js honors the CURRENT variable names
+// (colorForeground / colorInput / colorInputForeground / colorPrimaryForeground /
+// colorNeutral). The legacy names (colorText / colorInputBackground / …) are
+// silently ignored at runtime, and `@clerk/themes`' baseTheme is not applied by
+// this @clerk/nextjs version — so we theme entirely via these flat variables.
+const clerkAppearance = {
+  variables: {
+    colorBackground: "#1c1b19",
+    colorNeutral: "white",
+    colorForeground: "#ece9e0",
+    colorPrimary: "#e0a82e",
+    colorPrimaryForeground: "#1a160b",
+    colorInput: "#26241f",
+    colorInputForeground: "#ece9e0",
+    colorDanger: "#e5484d",
+    borderRadius: "0.625rem",
+    fontFamily: "var(--font-geist-sans), ui-sans-serif, sans-serif",
+  },
+  // Make the "Sign out" item in the UserButton dropdown stand out in crimson.
+  elements: {
+    userButtonPopoverActionButton__signOut:
+      "text-destructive! hover:bg-destructive/10",
+    userButtonPopoverActionButtonIcon__signOut: "text-destructive!",
+    userButtonPopoverActionButtonText__signOut: "text-destructive!",
+  },
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -39,7 +69,7 @@ export default function RootLayout({
       className={`dark ${geistSans.variable} ${geistMono.variable}`}
     >
       <body className="flex min-h-dvh flex-col antialiased">
-        <ClerkProvider>
+        <ClerkProvider appearance={clerkAppearance} localization={viVN}>
           <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-border/60 bg-background/70 px-4 backdrop-blur-md sm:px-6">
             <Link href="/" className="flex items-center gap-2.5">
               <span className="flex size-9 items-center justify-center rounded-md border border-primary/30 bg-primary/10 text-primary">
