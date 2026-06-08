@@ -8,10 +8,18 @@ import { PrismaClient } from "@/generated/prisma/client";
 // (Supabase, Neon, RDS, local). `DATABASE_URL` comes from `.env.local`; for a
 // pooled host point it at the POOLED connection (migrations use `DIRECT_URL`
 // through prisma.config.ts).
-const createPrismaClient = () =>
-  new PrismaClient({
-    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+const createPrismaClient = () => {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error(
+      "DATABASE_URL is required to initialize Prisma. Set it in .env.local (or the runtime environment).",
+    );
+  }
+
+  return new PrismaClient({
+    adapter: new PrismaPg({ connectionString: databaseUrl }),
   });
+};
 
 // In dev, Next.js re-evaluates modules on every hot reload. Without caching the
 // instance on `globalThis`, each reload would spin up a fresh client (and a new
