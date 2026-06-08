@@ -24,11 +24,6 @@ function redact(word: string) {
   return word.replace(/[^ ]/g, "█");
 }
 
-/**
- * Demo "classified dossier" card: a player opens their secret word with a
- * decrypt/scramble animation. Toggling the perspective shows how a civilian and
- * a spy receive two *similar* words — the core bluffing mechanic.
- */
 export function DossierReveal() {
   const [role, setRole] = useState<Role>("civilian");
   const [revealed, setRevealed] = useState(false);
@@ -179,7 +174,7 @@ export function DossierReveal() {
 
       <p className="text-classified mt-3 text-center text-[10px] text-muted-foreground">
         {revealed
-          ? "Demo · hai từ gần giống để gây nhiễu"
+          ? "Hai từ gần giống để gây nhiễu"
           : "Nhấn để xem bạn nhận từ nào"}
       </p>
     </div>
