@@ -22,6 +22,15 @@ import { Input } from "@/components/ui/input";
 import { DossierCard } from "@/components/dossier-card";
 import { DossierReveal } from "@/components/dossier-reveal";
 import { PhaseBanner } from "@/components/phase-banner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useRoomChannel } from "@/hooks/use-room-channel";
 import {
   ackReady,
@@ -63,6 +72,7 @@ export function RoomClient({
   const [selectedVote, setSelectedVote] = useState<string | null>(null);
   const [guess, setGuess] = useState("");
   const [copied, setCopied] = useState(false);
+  const [voteOpen, setVoteOpen] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -343,82 +353,124 @@ export function RoomClient({
             );
           })()}
 
-        {/* ── Vote ── */}
+        {/* ── Vote: clues stay on screen; voting happens in a closable dialog ── */}
         {state.phase === "voting" && (
-          <div className="flex flex-1 flex-col gap-6">
+          <div className="flex flex-1 flex-col justify-center gap-5">
             <PhaseBanner
               eyebrow={`${tc("round")} ${state.roundNumber}`}
               title={t("voteTitle")}
               description={t("votePrompt")}
             />
-            {state.deadlineAt && (
-              <div className="flex justify-center">
-                <TurnTimer
-                  deadlineAt={state.deadlineAt}
-                  onExpire={() => act(() => advanceIfExpired(code))}
-                />
-              </div>
-            )}
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {alivePlayers
-                .filter((p) => p.id !== meId)
-                .map((p) => {
-                  const selected = selectedVote === p.id;
-                  const count = state.tally?.[p.id] ?? 0;
-                  return (
-                    <DossierCard
-                      key={p.id}
-                      asChild
-                      interactive
-                      tone={selected ? "crimson" : "neutral"}
-                      selected={selected}
+            <ul className="flex flex-col gap-2">
+              {alivePlayers.map((p) => (
+                <li key={p.id}>
+                  <DossierCard className="flex items-center gap-3 p-3">
+                    <span className="shrink-0 truncate text-sm font-medium">
+                      {p.name}
+                      {p.id === meId ? ` (${tc("you")})` : ""}
+                    </span>
+                    <span className="flex flex-1 flex-wrap justify-end gap-1">
+                      {p.clues.map((c, i) => (
+                        <span
+                          key={i}
+                          className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs"
+                        >
+                          {c}
+                        </span>
+                      ))}
+                    </span>
+                  </DossierCard>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-auto">
+              {mePlayer && !mePlayer.hasVoted ? (
+                <Dialog open={voteOpen} onOpenChange={setVoteOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="destructive"
+                      className="h-12 w-full gap-2 text-sm font-semibold"
                     >
-                      <button
-                        type="button"
-                        aria-pressed={selected}
-                        onClick={() => setSelectedVote(p.id)}
-                        className="flex items-center gap-3 p-4"
+                      <Vote className="size-4" /> {t("openVote")}
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>{t("voteTitle")}</DialogTitle>
+                      <DialogDescription>{t("votePrompt")}</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {alivePlayers
+                        .filter((p) => p.id !== meId)
+                        .map((p) => {
+                          const selected = selectedVote === p.id;
+                          const count = state.tally?.[p.id] ?? 0;
+                          return (
+                            <DossierCard
+                              key={p.id}
+                              asChild
+                              interactive
+                              tone={selected ? "crimson" : "neutral"}
+                              selected={selected}
+                            >
+                              <button
+                                type="button"
+                                aria-pressed={selected}
+                                onClick={() => setSelectedVote(p.id)}
+                                className="flex items-center gap-3 p-4"
+                              >
+                                <ShieldAlert
+                                  className={cn(
+                                    "size-4",
+                                    selected
+                                      ? "text-destructive"
+                                      : "text-muted-foreground",
+                                  )}
+                                />
+                                <span className="min-w-0 flex-1 truncate font-medium">
+                                  {p.name}
+                                </span>
+                                {count > 0 && (
+                                  <span className="font-mono text-xs text-muted-foreground">
+                                    {count}
+                                  </span>
+                                )}
+                              </button>
+                            </DossierCard>
+                          );
+                        })}
+                    </div>
+                    <DialogFooter className="flex-col gap-2 sm:flex-col">
+                      <Button
+                        onClick={() => {
+                          setVoteOpen(false);
+                          act(() => castVote(code, selectedVote));
+                        }}
+                        disabled={pending || !selectedVote}
+                        variant="destructive"
+                        className="h-11 w-full gap-2"
                       >
-                        <ShieldAlert
-                          className={cn(
-                            "size-4",
-                            selected ? "text-destructive" : "text-muted-foreground",
-                          )}
-                        />
-                        <span className="min-w-0 flex-1 truncate font-medium">{p.name}</span>
-                        {count > 0 && (
-                          <span className="font-mono text-xs text-muted-foreground">
-                            {count}
-                          </span>
-                        )}
-                      </button>
-                    </DossierCard>
-                  );
-                })}
+                        <Vote className="size-4" /> {t("castVote")}
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setVoteOpen(false);
+                          act(() => castVote(code, null));
+                        }}
+                        variant="ghost"
+                        className="h-10 w-full text-xs"
+                      >
+                        {t("abstain")}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              ) : (
+                <p className="text-classified text-center text-[11px] text-muted-foreground">
+                  {t("waitingVotes")}
+                </p>
+              )}
             </div>
-            {mePlayer && !mePlayer.hasVoted ? (
-              <div className="mt-auto flex flex-col gap-2">
-                <Button
-                  onClick={() => act(() => castVote(code, selectedVote))}
-                  disabled={pending || !selectedVote}
-                  variant="destructive"
-                  className="h-12 w-full gap-2 text-sm font-semibold"
-                >
-                  <Vote className="size-4" /> {t("castVote")}
-                </Button>
-                <Button
-                  onClick={() => act(() => castVote(code, null))}
-                  variant="ghost"
-                  className="h-10 w-full text-xs"
-                >
-                  {t("abstain")}
-                </Button>
-              </div>
-            ) : (
-              <p className="text-classified mt-auto text-center text-[11px] text-muted-foreground">
-                {t("waitingVotes")}
-              </p>
-            )}
           </div>
         )}
 
