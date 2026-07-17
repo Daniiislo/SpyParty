@@ -226,7 +226,9 @@
     "guessPlaceholder": "Your guess",
     "submitGuess": "Guess",
     "mrWhiteWaiting": "Mr. White is guessing…",
-    "mrWhiteWins": "Mr. White wins"
+    "mrWhiteWins": "Mr. White wins",
+    "timerLabel": "Turn timer",
+    "timerOff": "Off"
   },
   "leaderboard": {
     "eyebrow": "Top agents",

@@ -226,7 +226,9 @@
     "guessPlaceholder": "Từ bạn đoán",
     "submitGuess": "Đoán",
     "mrWhiteWaiting": "Mr. White đang đoán…",
-    "mrWhiteWins": "Mr. White thắng"
+    "mrWhiteWins": "Mr. White thắng",
+    "timerLabel": "Hẹn giờ lượt",
+    "timerOff": "Tắt"
   },
   "leaderboard": {
     "eyebrow": "Đặc vụ hàng đầu",
