@@ -1,8 +1,11 @@
 # Continuous Integration — runs on every PR to `dev`/`main`.
-# Verifies the app in spy-party/ with lint + typecheck + build.
+# Verifies the app in spy-party/ with lint + build + typecheck + tests.
 # NOTE: `npm run build` needs Clerk keys. Add them under
 #   GitHub → Settings → Secrets and variables → Actions:
 #     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY, CLERK_SECRET_KEY
+# `npm run build` must run BEFORE `tsc --noEmit`: Next.js generates the
+# `.next/types` route helpers (PageProps/LayoutProps) during the build, and the
+# standalone typecheck depends on them.
 name: CI
 
 on:
@@ -24,8 +27,9 @@ jobs:
           cache-dependency-path: spy-party/package-lock.json
       - run: npm ci
       - run: npm run lint
-      - run: npx tsc --noEmit
       - run: npm run build
         env:
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+      - run: npx tsc --noEmit
+      - run: npx vitest run
