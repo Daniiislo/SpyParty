@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowRight, Home, RotateCcw, ShieldAlert, Vote } from "lucide-react";
+import { ArrowRight, Home, RotateCcw, Send, ShieldAlert, Vote } from "lucide-react";
 
 import { useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { DossierCard } from "@/components/dossier-card";
 import { DossierReveal } from "@/components/dossier-reveal";
 import { HandoffGate } from "@/components/handoff-gate";
@@ -13,16 +14,25 @@ import { PhaseBanner } from "@/components/phase-banner";
 import {
   applyElimination,
   applyOutcome,
+  checkMrWhiteGuess,
   deal,
   describeOrder,
   evaluateOutcome,
+  startNextRound,
   type GameState,
-  type Outcome,
   type Role,
+  type Side,
 } from "@/lib/game";
 import { OFFLINE_SETUP_KEY, readOfflineSetup, type OfflineSetup } from "../offline-storage";
 
-type UiPhase = "reveal" | "reviewDone" | "describe" | "vote" | "elimination" | "result";
+type UiPhase =
+  | "reveal"
+  | "reviewDone"
+  | "describe"
+  | "vote"
+  | "elimination"
+  | "mrWhiteGuess"
+  | "result";
 
 export default function OfflinePlayPage() {
   const t = useTranslations("offline");
@@ -33,13 +43,13 @@ export default function OfflinePlayPage() {
   const [boot, setBoot] = useState<{ setup: OfflineSetup; game: GameState } | null>(
     null,
   );
-
   const [ui, setUi] = useState<UiPhase>("reveal");
   const [revealIndex, setRevealIndex] = useState(0);
   const [atGate, setAtGate] = useState(true);
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
   const [eliminatedId, setEliminatedId] = useState<string | null>(null);
-  const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const [outcome, setOutcome] = useState<Side | null>(null);
+  const [guess, setGuess] = useState("");
 
   useEffect(() => {
     const s = readOfflineSetup();
@@ -47,8 +57,6 @@ export default function OfflinePlayPage() {
       router.replace("/offline");
       return;
     }
-    // One-time hydration from sessionStorage — browser-only, absent during SSR,
-    // so an effect is the correct tool here.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setBoot({
       setup: s,
@@ -79,6 +87,11 @@ export default function OfflinePlayPage() {
 
   const { setup, game } = boot;
   const players = game.players;
+  const eliminated = eliminatedId ? players.find((p) => p.id === eliminatedId) : null;
+
+  function setGame(next: GameState) {
+    setBoot((b) => (b ? { ...b, game: next } : b));
+  }
 
   function handleRevealDone() {
     if (revealIndex + 1 < players.length) {
@@ -89,16 +102,43 @@ export default function OfflinePlayPage() {
     }
   }
 
-  // `target` is passed explicitly (not read from state) so the abstain button
-  // resolves with null even when a candidate is currently selected — reading the
-  // `selectedTarget` closure here would use its stale pre-click value.
   function resolveRound(target: string | null) {
-    const next = applyElimination(game, target);
-    const oc = evaluateOutcome(next);
+    setGame(applyElimination(game, target));
     setEliminatedId(target);
-    setOutcome(oc);
-    setBoot((b) => (b ? { ...b, game: applyOutcome(next, oc) } : b));
     setUi("elimination");
+  }
+
+  // From the elimination reveal: Mr. White may steal; otherwise continue.
+  function afterElimination() {
+    if (eliminated?.role === "mrWhite") {
+      setUi("mrWhiteGuess");
+      return;
+    }
+    advance();
+  }
+
+  // Evaluate win conditions and either end the match or start the next round.
+  function advance() {
+    const oc = evaluateOutcome(game);
+    if (oc.matchOver) {
+      setOutcome(oc.winner);
+      setGame(applyOutcome(game, oc));
+      setUi("result");
+    } else {
+      setGame(startNextRound(game));
+      setSelectedTarget(null);
+      setUi("describe");
+    }
+  }
+
+  function submitGuess() {
+    if (eliminated && checkMrWhiteGuess(guess, game.civilianWord)) {
+      setOutcome("mrWhite");
+      setGame({ ...game, winner: "mrWhite", phase: "matchEnd" });
+      setUi("result");
+    } else {
+      advance();
+    }
   }
 
   function playAgain() {
@@ -106,14 +146,12 @@ export default function OfflinePlayPage() {
     router.push("/offline");
   }
 
-  const eliminated = eliminatedId
-    ? players.find((p) => p.id === eliminatedId)
-    : null;
+  const winner = outcome;
 
   return (
     <main className="bg-blueprint relative flex min-h-dvh flex-col">
       <div className="relative mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-10 sm:px-6 sm:py-14">
-        {/* ── Reveal (handoff + per-player word) ── */}
+        {/* Reveal (round 1 only) */}
         {ui === "reveal" &&
           (atGate ? (
             <div className="flex flex-1 items-center justify-center">
@@ -126,10 +164,7 @@ export default function OfflinePlayPage() {
             </div>
           ) : (
             <div className="flex flex-1 flex-col justify-center gap-6">
-              <PhaseBanner
-                eyebrow={t("dealtEyebrow")}
-                title={players[revealIndex].name}
-              />
+              <PhaseBanner eyebrow={t("dealtEyebrow")} title={players[revealIndex].name} />
               <DossierReveal
                 mode="reveal"
                 role={players[revealIndex].role}
@@ -140,7 +175,6 @@ export default function OfflinePlayPage() {
             </div>
           ))}
 
-        {/* ── Everyone revealed ── */}
         {ui === "reviewDone" && (
           <div className="flex flex-1 flex-col justify-center gap-8 text-center">
             <PhaseBanner
@@ -157,7 +191,6 @@ export default function OfflinePlayPage() {
           </div>
         )}
 
-        {/* ── Describe (in person) ── */}
         {ui === "describe" && (
           <div className="flex flex-1 flex-col justify-center gap-6">
             <PhaseBanner
@@ -186,7 +219,6 @@ export default function OfflinePlayPage() {
           </div>
         )}
 
-        {/* ── Vote (group picks who to eliminate) ── */}
         {ui === "vote" && (
           <div className="flex flex-1 flex-col justify-center gap-6">
             <PhaseBanner
@@ -213,7 +245,9 @@ export default function OfflinePlayPage() {
                     >
                       <ShieldAlert
                         className={
-                          selected ? "size-4 text-destructive" : "size-4 text-muted-foreground"
+                          selected
+                            ? "size-4 text-destructive"
+                            : "size-4 text-muted-foreground"
                         }
                       />
                       <span className="min-w-0 truncate font-medium">{p.name}</span>
@@ -247,7 +281,6 @@ export default function OfflinePlayPage() {
           </div>
         )}
 
-        {/* ── Elimination reveal ── */}
         {ui === "elimination" && (
           <div className="flex flex-1 flex-col justify-center gap-8 text-center">
             <PhaseBanner
@@ -258,40 +291,59 @@ export default function OfflinePlayPage() {
                   : t("noOneEliminated")
               }
             />
-            {eliminated ? (
-              <div className="flex flex-col items-center gap-4">
-                <DossierCard
-                  tone={eliminated.role === "civilian" ? "amber" : "crimson"}
-                  className="w-full max-w-xs animate-alert-pulse p-6"
+            {eliminated && (
+              <DossierCard
+                tone={eliminated.role === "civilian" ? "amber" : "crimson"}
+                className="mx-auto w-full max-w-xs animate-alert-pulse p-6"
+              >
+                <p className="font-mono text-xl font-bold">{eliminated.name}</p>
+                <p
+                  className={
+                    eliminated.role === "civilian"
+                      ? "mt-3 text-sm text-primary"
+                      : "mt-3 text-sm text-destructive"
+                  }
                 >
-                  <p className="font-mono text-xl font-bold">{eliminated.name}</p>
-                  <p
-                    className={
-                      eliminated.role === "civilian"
-                        ? "mt-3 text-sm text-primary"
-                        : "mt-3 text-sm text-destructive"
-                    }
-                  >
-                    {t("wasRole", { role: roleLabel(eliminated.role) })}
-                  </p>
-                </DossierCard>
-              </div>
-            ) : null}
+                  {t("wasRole", { role: roleLabel(eliminated.role) })}
+                </p>
+              </DossierCard>
+            )}
             <Button
-              onClick={() => setUi("result")}
+              onClick={afterElimination}
               className="mx-auto h-12 w-full max-w-xs gap-2 text-sm font-semibold"
             >
-              {t("seeResult")} <ArrowRight className="size-4" />
+              {t("continueGame")} <ArrowRight className="size-4" />
             </Button>
           </div>
         )}
 
-        {/* ── Verdict ── */}
-        {ui === "result" && outcome && (
+        {ui === "mrWhiteGuess" && (
+          <div className="flex flex-1 flex-col justify-center gap-6 text-center">
+            <PhaseBanner
+              eyebrow={t("eliminatedEyebrow")}
+              title={t("mrWhiteGuessTitle")}
+              description={t("mrWhiteGuessPrompt")}
+            />
+            <div className="flex gap-2">
+              <Input
+                value={guess}
+                onChange={(e) => setGuess(e.target.value)}
+                placeholder={t("guessPlaceholder")}
+                maxLength={40}
+                className="h-12"
+              />
+              <Button onClick={submitGuess} className="h-12 gap-2">
+                <Send className="size-4" /> {t("submitGuess")}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {ui === "result" && (
           <div className="flex flex-1 flex-col justify-center gap-8 text-center">
             <div
               className={
-                outcome.winner === "civilians"
+                winner === "civilians"
                   ? "animate-glow-pulse rounded-2xl border border-primary/40 bg-card p-8"
                   : "animate-alert-pulse rounded-2xl border border-destructive/50 bg-card p-8"
               }
@@ -301,12 +353,18 @@ export default function OfflinePlayPage() {
               </span>
               <h1
                 className={
-                  outcome.winner === "civilians"
+                  winner === "civilians"
                     ? "mt-2 text-3xl font-bold text-primary"
-                    : "mt-2 text-3xl font-bold text-destructive"
+                    : winner === "mrWhite"
+                      ? "mt-2 text-3xl font-bold text-foreground"
+                      : "mt-2 text-3xl font-bold text-destructive"
                 }
               >
-                {outcome.winner === "civilians" ? t("civiliansWin") : t("spiesWin")}
+                {winner === "civilians"
+                  ? t("civiliansWin")
+                  : winner === "mrWhite"
+                    ? t("mrWhiteWins")
+                    : t("spiesWin")}
               </h1>
               <div className="mt-6 grid grid-cols-2 gap-3 text-left">
                 <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
@@ -326,14 +384,14 @@ export default function OfflinePlayPage() {
                   </p>
                 </div>
               </div>
-              <p className="mt-4 text-xs text-muted-foreground">
-                {t("spiesWere", {
-                  names: players
-                    .filter((p) => p.role === "spy")
-                    .map((p) => p.name)
-                    .join(", "),
-                })}
-              </p>
+              <ul className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                {players.map((p) => (
+                  <li key={p.id}>
+                    <span className="font-medium text-foreground">{p.name}</span> ·{" "}
+                    {roleLabel(p.role)}
+                  </li>
+                ))}
+              </ul>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
               <Button

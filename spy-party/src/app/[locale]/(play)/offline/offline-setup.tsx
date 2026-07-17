@@ -37,11 +37,12 @@ export function OfflineSetupForm({
 
   const [names, setNames] = useState<string[]>(["", "", "", ""]);
   const [spyCount, setSpyCount] = useState(1);
+  const [mrWhite, setMrWhite] = useState(false);
   const [topicSlug, setTopicSlug] = useState(topics[0]?.slug ?? "");
   const [isPending, startTransition] = useTransition();
 
   const playerCount = names.length;
-  const spyCap = maxSpies(playerCount);
+  const spyCap = Math.max(1, maxSpies(playerCount) - (mrWhite ? 1 : 0));
   const clampedSpies = Math.min(spyCount, spyCap);
 
   function updateName(i: number, value: string) {
@@ -66,7 +67,11 @@ export function OfflineSetupForm({
       const wordPair = await dealOfflinePair(topic.slug, locale, seed);
       const setup: OfflineSetup = {
         players,
-        config: { spyCount: clampedSpies, mrWhiteCount: 0, maxRounds: 1 },
+        config: {
+          spyCount: clampedSpies,
+          mrWhiteCount: mrWhite ? 1 : 0,
+          maxRounds: players.length,
+        },
         wordPair,
         topicName: topic.name,
         seed,
@@ -148,6 +153,33 @@ export function OfflineSetupForm({
             decrementLabel={`${tc("back")} ${t("spiesLabel")}`}
             incrementLabel={`${tc("next")} ${t("spiesLabel")}`}
           />
+        </section>
+
+        {/* Mr. White */}
+        <section className="mt-8 flex items-center justify-between gap-4">
+          <div>
+            <Label className="text-classified text-[11px] text-muted-foreground">
+              {t("mrWhiteLabel")}
+            </Label>
+            <p className="mt-1 text-xs text-muted-foreground">{t("mrWhiteHint")}</p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={mrWhite}
+            onClick={() => setMrWhite((v) => !v)}
+            className={cn(
+              "relative h-7 w-12 shrink-0 rounded-full border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              mrWhite ? "border-primary bg-primary/30" : "border-border bg-muted",
+            )}
+          >
+            <span
+              className={cn(
+                "absolute top-0.5 size-5 rounded-full bg-foreground transition-transform",
+                mrWhite ? "translate-x-5" : "translate-x-0.5",
+              )}
+            />
+          </button>
         </section>
 
         {/* Topic */}
