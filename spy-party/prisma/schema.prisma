@@ -122,6 +122,7 @@ model Room {
   topicSlug        String?
   spyCount         Int        @default(1)
   mrWhiteCount     Int        @default(0)
+  blindMode        Boolean    @default(false)
   turnTimerSeconds Int?
   describeRounds   Int        @default(2)
   maxPlayers       Int        @default(10)

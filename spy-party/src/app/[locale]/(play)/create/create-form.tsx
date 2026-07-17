@@ -2,15 +2,24 @@
 
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
-import { Radar } from "lucide-react";
+import { EyeOff, Radar } from "lucide-react";
 
 import { useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ActionOverlay } from "@/components/action-overlay";
 import { NumberStepper } from "@/components/number-stepper";
 import { PhaseBanner } from "@/components/phase-banner";
 import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { createRoom } from "@/lib/actions/rooms";
 import type { TopicOption } from "@/lib/data/word-bank";
 import type { BankLocale } from "@/lib/game/word-bank";
@@ -31,11 +40,23 @@ export function CreateRoomForm({
   const [hostName, setHostName] = useState("");
   const [spyCount, setSpyCount] = useState(1);
   const [mrWhite, setMrWhite] = useState(false);
+  const [blindMode, setBlindMode] = useState(false);
+  const [conflictOpen, setConflictOpen] = useState(false);
   const [turnTimer, setTurnTimer] = useState<number | null>(null);
   const [describeRounds, setDescribeRounds] = useState(2);
   const [topicSlug, setTopicSlug] = useState(topics[0]?.slug ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  // Blind mode and Mr. White are mutually exclusive; enabling blind mode turns
+  // Mr. White off and explains why via a popup.
+  function toggleBlind(on: boolean) {
+    setBlindMode(on);
+    if (on && mrWhite) {
+      setMrWhite(false);
+      setConflictOpen(true);
+    }
+  }
 
   function submit() {
     startTransition(async () => {
@@ -46,7 +67,8 @@ export function CreateRoomForm({
         topicSlug,
         locale,
         hostName,
-        mrWhiteCount: mrWhite ? 1 : 0,
+        mrWhiteCount: mrWhite && !blindMode ? 1 : 0,
+        blindMode,
         turnTimerSeconds: turnTimer,
         describeRounds,
       });
@@ -57,6 +79,22 @@ export function CreateRoomForm({
 
   return (
     <main className="bg-blueprint relative flex min-h-dvh flex-col">
+      <ActionOverlay active={pending} label={tc("loading")} />
+      <Dialog open={conflictOpen} onOpenChange={setConflictOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <EyeOff className="size-4" /> {t("blindMrWhiteTitle")}
+            </DialogTitle>
+            <DialogDescription>{t("blindMrWhiteDesc")}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setConflictOpen(false)} className="h-11 w-full">
+              {t("gotIt")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <div className="glow-hero pointer-events-none absolute inset-0" />
       <div className="relative mx-auto w-full max-w-lg px-4 py-12 sm:px-6 sm:py-16">
         <PhaseBanner
@@ -125,69 +163,93 @@ export function CreateRoomForm({
         </section>
 
         <section className="mt-8 flex items-center justify-between gap-4">
-          <Label className="text-classified text-[11px] text-muted-foreground">
+          <Label
+            className={cn(
+              "text-classified text-[11px] text-muted-foreground",
+              blindMode && "opacity-50",
+            )}
+          >
             {t("mrWhiteLabel")}
           </Label>
           <Switch
-            checked={mrWhite}
+            checked={mrWhite && !blindMode}
             onCheckedChange={setMrWhite}
+            disabled={blindMode}
             aria-label={t("mrWhiteLabel")}
           />
         </section>
 
-        <section className="mt-8 flex items-center justify-between gap-4">
-          <Label className="text-classified text-[11px] text-muted-foreground">
-            {t("timerLabel")}
-          </Label>
-          <div className="flex gap-1.5">
-            {([null, 10, 15, 20] as const).map((opt) => {
-              const active = turnTimer === opt;
-              return (
-                <button
-                  key={String(opt)}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => setTurnTimer(opt)}
-                  className={cn(
-                    "h-9 rounded-lg border px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    active
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border hover:bg-muted",
-                  )}
-                >
-                  {opt === null ? t("timerOff") : `${opt}s`}
-                </button>
-              );
-            })}
+        <section className="mt-8 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <Label className="text-classified text-[11px] text-muted-foreground">
+              {t("blindModeLabel")}
+            </Label>
+            <p className="mt-1 text-xs text-muted-foreground">{t("blindModeDesc")}</p>
           </div>
+          <Switch
+            checked={blindMode}
+            onCheckedChange={toggleBlind}
+            aria-label={t("blindModeLabel")}
+          />
         </section>
 
-        <section className="mt-8 flex items-center justify-between gap-4">
-          <Label className="text-classified text-[11px] text-muted-foreground">
-            {t("roundsLabel")}
-          </Label>
-          <div className="flex gap-1.5">
-            {([1, 2, 3] as const).map((opt) => {
-              const active = describeRounds === opt;
-              return (
-                <button
-                  key={opt}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => setDescribeRounds(opt)}
-                  className={cn(
-                    "size-9 rounded-lg border text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    active
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border hover:bg-muted",
-                  )}
-                >
-                  {opt}
-                </button>
-              );
-            })}
-          </div>
-        </section>
+        {mode === "online" && (
+          <>
+            <section className="mt-8 flex items-center justify-between gap-4">
+              <Label className="text-classified text-[11px] text-muted-foreground">
+                {t("timerLabel")}
+              </Label>
+              <div className="flex gap-1.5">
+                {([null, 10, 15, 20] as const).map((opt) => {
+                  const active = turnTimer === opt;
+                  return (
+                    <button
+                      key={String(opt)}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => setTurnTimer(opt)}
+                      className={cn(
+                        "h-9 rounded-lg border px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        active
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border hover:bg-muted",
+                      )}
+                    >
+                      {opt === null ? t("timerOff") : `${opt}s`}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="mt-8 flex items-center justify-between gap-4">
+              <Label className="text-classified text-[11px] text-muted-foreground">
+                {t("roundsLabel")}
+              </Label>
+              <div className="flex gap-1.5">
+                {([1, 2, 3] as const).map((opt) => {
+                  const active = describeRounds === opt;
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => setDescribeRounds(opt)}
+                      className={cn(
+                        "size-9 rounded-lg border text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        active
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border hover:bg-muted",
+                      )}
+                    >
+                      {opt}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          </>
+        )}
 
         <section className="mt-8">
           <Label className="text-classified text-[11px] text-muted-foreground">

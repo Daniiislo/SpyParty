@@ -8,6 +8,7 @@ import { useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ActionOverlay } from "@/components/action-overlay";
 import { PhaseBanner } from "@/components/phase-banner";
 import { joinRoom } from "@/lib/actions/rooms";
 
@@ -43,6 +44,7 @@ export function JoinForm({ initialCode = "" }: { initialCode?: string }) {
 
   return (
     <main className="bg-blueprint relative flex min-h-dvh flex-col items-center justify-center px-4">
+      <ActionOverlay active={pending} label={tc("loading")} />
       <div className="glow-hero pointer-events-none absolute inset-0" />
       <div className="relative w-full max-w-sm">
         <PhaseBanner

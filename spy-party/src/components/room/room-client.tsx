@@ -13,7 +13,6 @@ import {
   Radar,
   RotateCcw,
   Send,
-  Settings,
   ShieldAlert,
   Trash2,
   Vote,
@@ -22,6 +21,7 @@ import {
 import { Link, useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ActionOverlay } from "@/components/action-overlay";
 import { DossierCard } from "@/components/dossier-card";
 import { DossierReveal } from "@/components/dossier-reveal";
 import { PhaseBanner } from "@/components/phase-banner";
@@ -45,14 +45,18 @@ import {
   leaveRoom,
   mrWhiteGuess,
   playAgain,
+  resolveVotingIfExpired,
   revealRoles,
   startDescribing,
   startMatch,
   submitClue,
 } from "@/lib/actions/rooms";
 import { TurnTimer } from "@/components/turn-timer";
+import { MissionBriefing } from "@/components/room/mission-briefing";
+import { RoomConfigPanel } from "@/components/room/room-config-panel";
 import type { MyCard, RoomState } from "@/lib/data/rooms";
-import { MIN_PLAYERS, type Role } from "@/lib/game";
+import type { TopicOption } from "@/lib/data/word-bank";
+import { MIN_PLAYERS, VOTE_TIMER_SECONDS, type Role } from "@/lib/game";
 import { cn } from "@/lib/utils";
 
 export function RoomClient({
@@ -60,11 +64,13 @@ export function RoomClient({
   roomId,
   initialState,
   initialCard,
+  topics,
 }: {
   code: string;
   roomId: string;
   initialState: RoomState;
   initialCard: MyCard | null;
+  topics: TopicOption[];
 }) {
   const t = useTranslations("online");
   const tc = useTranslations("common");
@@ -80,6 +86,7 @@ export function RoomClient({
   const [voteOpen, setVoteOpen] = useState(false);
   const [disbandOpen, setDisbandOpen] = useState(false);
   const [resultDismissed, setResultDismissed] = useState(false);
+  const [briefingDismissed, setBriefingDismissed] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -93,6 +100,8 @@ export function RoomClient({
     // Once the room moves past the final result (e.g. host starts a new game),
     // drop any "dismissed" flag so the next match's result shows again.
     if (s.phase !== "matchEnd") setResultDismissed(false);
+    // Re-arm the mission briefing so a fresh match replays its intro.
+    if (s.phase === "lobby") setBriefingDismissed(false);
     setState(s);
     setCard(c);
   }
@@ -131,6 +140,10 @@ export function RoomClient({
 
   return (
     <main className="bg-blueprint relative flex min-h-dvh flex-col">
+      <ActionOverlay active={pending} label={tc("loading")} />
+      {state.phase === "dealing" && !briefingDismissed && (
+        <MissionBriefing onDone={() => setBriefingDismissed(true)} />
+      )}
       <div className="relative mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-10 sm:px-6 sm:py-14">
         {/* ── Lobby ── */}
         {state.phase === "lobby" && (
@@ -182,13 +195,25 @@ export function RoomClient({
               ))}
             </ul>
 
+            <RoomConfigPanel
+              code={code}
+              mode={state.mode}
+              isHost={isHost}
+              topics={topics}
+              config={{
+                topicSlug: state.topicSlug,
+                topicName: state.topicName,
+                spyCount: state.spyCount,
+                mrWhiteCount: state.mrWhiteCount,
+                blindMode: state.blindMode,
+                turnTimerSeconds: state.turnTimerSeconds,
+                describeRounds: state.describeRounds,
+                maxPlayers: state.maxPlayers,
+              }}
+            />
+
             {isHost ? (
               <div className="mt-auto flex flex-col gap-2">
-                <Button asChild variant="outline" className="h-11 w-full gap-2">
-                  <Link href={`/room/${code}/settings`}>
-                    <Settings className="size-4" /> {t("settings")}
-                  </Link>
-                </Button>
                 <Button
                   onClick={() =>
                     startTransition(async () => {
@@ -279,7 +304,8 @@ export function RoomClient({
 
         {/* ── Dealing: view your word, then ready-gate (online) / reveal (offline) ── */}
         {state.phase === "dealing" && (
-          <div className="flex flex-1 flex-col justify-center gap-6">
+          <div className="relative flex flex-1 flex-col justify-center gap-6">
+            <div className="glow-hero pointer-events-none absolute inset-x-0 -top-10 h-56" aria-hidden />
             <PhaseBanner
               eyebrow={t("dealingTitle")}
               title="SPY PARTY"
@@ -288,7 +314,8 @@ export function RoomClient({
             {card && !mePlayer?.ready && (
               <DossierReveal
                 mode="reveal"
-                role={card.role}
+                role={card.role ?? undefined}
+                blind={card.blind}
                 word={card.word}
                 topic={state.topicName ?? undefined}
                 onDone={() => act(() => ackReady(code))}
@@ -438,6 +465,15 @@ export function RoomClient({
               title={t("voteTitle")}
               description={t("votePrompt")}
             />
+            {state.deadlineAt && (
+              <div className="flex justify-center">
+                <TurnTimer
+                  deadlineAt={state.deadlineAt}
+                  durationSeconds={VOTE_TIMER_SECONDS}
+                  onExpire={() => act(() => resolveVotingIfExpired(code))}
+                />
+              </div>
+            )}
             <ul className="flex flex-col gap-2">
               {alivePlayers.map((p) => (
                 <li key={p.id}>
