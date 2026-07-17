@@ -27,6 +27,7 @@ import {
   MIN_PLAYERS,
   randomSeed,
   resolveVote,
+  scoreMatch,
   tallyVotes,
   type GameState,
   type Outcome,
@@ -100,6 +101,54 @@ function toGameState(room: LoadedRoom, match: LoadedMatch): GameState {
   };
 }
 
+/**
+ * Score a finished match: write per-player points + upsert the lifetime
+ * leaderboard for signed-in players (guests, having no Clerk id, don't accrue).
+ */
+async function persistMatchResult(matchId: string, winner: Side) {
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    include: { matchPlayers: { include: { player: true } } },
+  });
+  if (!match) return;
+  type MP = (typeof match.matchPlayers)[number];
+  const players: PlayerState[] = match.matchPlayers.map((mp: MP) => ({
+    id: mp.playerId,
+    name: mp.player.displayName,
+    seatOrder: mp.player.seatOrder,
+    role: mapRole(mp.role),
+    word: mp.word,
+    status: mp.status === "ALIVE" ? "alive" : "eliminated",
+  }));
+  const scores = scoreMatch(players, winner);
+  for (const mp of match.matchPlayers) {
+    const sc = scores[mp.playerId] ?? { points: 0, isWinner: false };
+    await prisma.matchPlayer.update({
+      where: { id: mp.id },
+      data: { pointsAwarded: sc.points, isWinner: sc.isWinner },
+    });
+    const uid = mp.player.userId;
+    if (uid) {
+      await prisma.leaderboardStat.upsert({
+        where: { clerkUserId: uid },
+        create: {
+          clerkUserId: uid,
+          displayName: mp.player.displayName,
+          gamesPlayed: 1,
+          gamesWon: sc.isWinner ? 1 : 0,
+          totalPoints: sc.points,
+        },
+        update: {
+          displayName: mp.player.displayName,
+          gamesPlayed: { increment: 1 },
+          gamesWon: { increment: sc.isWinner ? 1 : 0 },
+          totalPoints: { increment: sc.points },
+        },
+      });
+    }
+  }
+}
+
 /** End the match or advance to the next round based on the evaluated outcome. */
 async function advanceMatch(
   matchId: string,
@@ -120,6 +169,7 @@ async function advanceMatch(
       }),
       prisma.room.update({ where: { id: roomId }, data: { status: "COMPLETED" } }),
     ]);
+    await persistMatchResult(matchId, outcome.winner);
   } else {
     await prisma.match.update({
       where: { id: matchId },
@@ -409,6 +459,7 @@ export async function mrWhiteGuess(code: string, guess: string): Promise<ActionR
       }),
       prisma.room.update({ where: { id: room.id }, data: { status: "COMPLETED" } }),
     ]);
+    await persistMatchResult(match.id, "mrWhite");
   } else {
     // Wrong guess — resolve the round normally (Mr. White is already eliminated).
     const outcome = evaluateOutcome(toGameState(room, match));

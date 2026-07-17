@@ -227,5 +227,17 @@
     "submitGuess": "Đoán",
     "mrWhiteWaiting": "Mr. White đang đoán…",
     "mrWhiteWins": "Mr. White thắng"
+  },
+  "leaderboard": {
+    "eyebrow": "Đặc vụ hàng đầu",
+    "title": "Bảng xếp hạng",
+    "subtitle": "Điểm tích luỹ qua các trận (người đã đăng nhập).",
+    "rank": "#",
+    "agent": "Đặc vụ",
+    "games": "Trận",
+    "wins": "Thắng",
+    "points": "Điểm",
+    "empty": "Chưa có trận nào.",
+    "backHome": "Trang chủ"
   }
 }

@@ -227,5 +227,17 @@
     "submitGuess": "Guess",
     "mrWhiteWaiting": "Mr. White is guessing…",
     "mrWhiteWins": "Mr. White wins"
+  },
+  "leaderboard": {
+    "eyebrow": "Top agents",
+    "title": "Leaderboard",
+    "subtitle": "Lifetime points across matches (signed-in players).",
+    "rank": "#",
+    "agent": "Agent",
+    "games": "Games",
+    "wins": "Wins",
+    "points": "Points",
+    "empty": "No matches played yet.",
+    "backHome": "Home"
   }
 }

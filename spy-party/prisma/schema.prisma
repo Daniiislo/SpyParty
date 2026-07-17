@@ -181,9 +181,26 @@ model MatchPlayer {
   word            String?
   status          PlayerStatus @default(ALIVE)
   eliminatedRound Int?
+  pointsAwarded   Int          @default(0)
+  isWinner        Boolean      @default(false)
 
   @@unique([matchId, playerId])
   @@index([matchId])
+  @@schema("spy_party")
+}
+
+/// Lifetime aggregate per signed-in (Clerk) player, for the leaderboard. Guests
+/// (no account) don't accrue; the schema supports linking them later.
+model LeaderboardStat {
+  id          String   @id @default(cuid())
+  clerkUserId String   @unique
+  displayName String
+  gamesPlayed Int      @default(0)
+  gamesWon    Int      @default(0)
+  totalPoints Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  @@index([totalPoints])
   @@schema("spy_party")
 }
 
