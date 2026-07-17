@@ -24,7 +24,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Ai Là Gián Điệp — Trò chơi truy tìm gián điệp",
+  title: "Spy Party — Ai Là Gián Điệp",
   description:
     "Nhận từ bí mật, mô tả thật khéo, và lật mặt kẻ giả danh. Trò chơi suy luận xã hội cho nhóm bạn — chơi online hoặc offline.",
 };
@@ -77,7 +77,7 @@ export default function RootLayout({
               </span>
               <span className="flex flex-col leading-none">
                 <span className="text-sm font-semibold tracking-wide">
-                  AI LÀ GIÁN ĐIỆP
+                  SPY PARTY
                 </span>
                 <span className="text-classified text-[10px] text-muted-foreground">
                   Classified · Briefing

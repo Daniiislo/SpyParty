@@ -1,8 +1,12 @@
-# Ai Là Gián Điệp (Who Is the Spy) — Project Overview
+# Spy Party — Project Overview
 
 > **Living document.** Update it whenever a decision is made. This is the primary
-> product-context source for Claude Code sessions. Keep the game's Vietnamese
-> name ("Ai Là Gián Điệp"); everything else is in English.
+> product-context source for Claude Code sessions.
+>
+> **Naming:** the project's name is **Spy Party**. "Ai Là Gián Điệp" (Who Is the
+> Spy) is only the Vietnamese descriptive tagline — not the brand. Use "Spy
+> Party" in all wordmarks, titles, and metadata; keep the Vietnamese tagline
+> where it helps players. Everything else in docs is in English.
 
 ## 1. Summary
 

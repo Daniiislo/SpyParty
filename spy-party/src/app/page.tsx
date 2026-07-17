@@ -51,7 +51,7 @@ export default function Home() {
               <Fingerprint className="size-3.5" /> Hồ sơ mật · Briefing
             </span>
             <h1 className="mt-6 text-4xl font-bold tracking-tight sm:text-6xl">
-              AI LÀ <span className="text-primary">GIÁN ĐIỆP</span>
+              SPY <span className="text-primary">PARTY</span>
             </h1>
             <p className="mt-5 max-w-md text-base text-muted-foreground sm:text-lg">
               Mỗi người nhận một từ bí mật. Gián điệp nhận từ{" "}
@@ -185,7 +185,7 @@ export default function Home() {
               <VenetianMask className="size-4" />
             </span>
             <span className="text-sm font-semibold tracking-wide">
-              AI LÀ GIÁN ĐIỆP
+              SPY PARTY
             </span>
           </div>
           <p className="text-classified text-[11px] text-muted-foreground">

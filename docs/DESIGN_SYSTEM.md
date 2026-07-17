@@ -13,6 +13,13 @@
 
 ## 1. Concept
 
+> **Brand name:** the product is **Spy Party**, rendered as the uppercase wordmark
+> `SPY PARTY` (second word in amber `text-primary`). "Ai Là Gián Điệp" is a
+> Vietnamese descriptive tagline only — not the brand — and *"Hồ Sơ Mật" /
+> "Classified Dossier"* names the **visual concept**, not the product. Use "Spy
+> Party" in every wordmark, page title, and metadata string; the Vietnamese
+> tagline may still appear in copy/metadata where it helps players.
+
 The UI reads like a **high-end intelligence tool**: a dark briefing-room
 backdrop, player cards styled as **agent dossiers**, and secret words shown as
 **redacted bars (████)** until they are "decrypted". Modern, elegant,
