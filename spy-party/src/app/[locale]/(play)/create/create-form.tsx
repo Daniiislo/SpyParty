@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NumberStepper } from "@/components/number-stepper";
 import { PhaseBanner } from "@/components/phase-banner";
+import { Switch } from "@/components/ui/switch";
 import { createRoom } from "@/lib/actions/rooms";
 import type { TopicOption } from "@/lib/data/word-bank";
 import type { BankLocale } from "@/lib/game/word-bank";
@@ -91,24 +92,11 @@ export function CreateRoomForm({
           <Label className="text-classified text-[11px] text-muted-foreground">
             {t("mrWhiteLabel")}
           </Label>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={mrWhite}
+          <Switch
+            checked={mrWhite}
+            onCheckedChange={setMrWhite}
             aria-label={t("mrWhiteLabel")}
-            onClick={() => setMrWhite((v) => !v)}
-            className={cn(
-              "relative h-7 w-12 shrink-0 rounded-full border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              mrWhite ? "border-primary bg-primary/30" : "border-border bg-muted",
-            )}
-          >
-            <span
-              className={cn(
-                "absolute top-0.5 size-5 rounded-full bg-foreground transition-transform",
-                mrWhite ? "translate-x-5" : "translate-x-0.5",
-              )}
-            />
-          </button>
+          />
         </section>
 
         <section className="mt-8 flex items-center justify-between gap-4">

@@ -60,6 +60,13 @@ model WordPair {
 // Online rooms
 // ─────────────────────────────────────────────────────────────────────────────
 
+enum RoomMode {
+  ONLINE
+  OFFLINE
+
+  @@schema("spy_party")
+}
+
 enum RoomStatus {
   LOBBY
   IN_PROGRESS
@@ -111,10 +118,13 @@ model Room {
   code         String     @unique
   status       RoomStatus @default(LOBBY)
   hostUserId       String
+  mode             RoomMode   @default(ONLINE)
   topicSlug        String?
   spyCount         Int        @default(1)
   mrWhiteCount     Int        @default(0)
   turnTimerSeconds Int?
+  describeRounds   Int        @default(2)
+  maxPlayers       Int        @default(10)
   gameLocale       String     @default("vi")
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
@@ -155,6 +165,8 @@ model Match {
   room         Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
   phase        MatchPhase    @default(DEALING)
   roundNumber  Int           @default(1)
+  describeRound Int          @default(1)
+  currentTurnPlayerId String?
   civilianWord String?
   spyWord      String?
   seed         String
@@ -184,6 +196,7 @@ model MatchPlayer {
   word            String?
   status          PlayerStatus @default(ALIVE)
   eliminatedRound Int?
+  ready           Boolean      @default(false)
   pointsAwarded   Int          @default(0)
   isWinner        Boolean      @default(false)
 
@@ -209,15 +222,16 @@ model LeaderboardStat {
 
 /// A describe-phase clue submitted by a player in a given round.
 model Clue {
-  id          String   @id @default(cuid())
-  matchId     String
-  match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  roundNumber Int
-  playerId    String
-  text        String
-  createdAt   DateTime @default(now())
+  id           String   @id @default(cuid())
+  matchId      String
+  match        Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  roundNumber  Int
+  describeRound Int     @default(1)
+  playerId     String
+  text         String
+  createdAt    DateTime @default(now())
 
-  @@unique([matchId, roundNumber, playerId])
+  @@unique([matchId, roundNumber, describeRound, playerId])
   @@index([matchId, roundNumber])
   @@schema("spy_party")
 }

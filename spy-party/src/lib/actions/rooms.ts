@@ -332,12 +332,13 @@ export async function startMatch(code: string): Promise<ActionResult> {
   if (room.players.length < MIN_PLAYERS) return { error: "need_players" };
 
   const n = room.players.length;
-  const spyCount = Math.min(Math.max(1, room.spyCount), Math.floor((n - 1) / 2));
-  let mrWhiteCount = room.mrWhiteCount ?? 0;
-  // Impostors must stay a strict minority; drop Mr. White (then extra spies) if
-  // there aren't enough players.
-  while (mrWhiteCount > 0 && spyCount + mrWhiteCount >= n - (spyCount + mrWhiteCount)) {
-    mrWhiteCount--;
+  const spyCount = Math.max(1, room.spyCount);
+  const mrWhiteCount = room.mrWhiteCount ?? 0;
+  // Impostors (spies + Mr. White) must stay a strict minority. Block instead of
+  // silently dropping roles, so the host knows to add players.
+  const impostors = spyCount + mrWhiteCount;
+  if (impostors >= n - impostors) {
+    return { error: "not_enough_players" };
   }
   const seed = randomSeed();
   const locale = room.gameLocale === "en" ? "en" : "vi";
