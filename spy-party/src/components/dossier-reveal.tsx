@@ -236,13 +236,15 @@ export function DossierReveal({
             <LockOpen className="size-4" /> {t("decode")}
           </Button>
         ) : isReveal ? (
-          <Button
-            onClick={onDone}
-            disabled={scrambling}
-            className="h-11 flex-1 gap-2"
-          >
-            <Check className="size-4" /> {t("memorized")}
-          </Button>
+          onDone ? (
+            <Button
+              onClick={onDone}
+              disabled={scrambling}
+              className="h-11 flex-1 gap-2"
+            >
+              <Check className="size-4" /> {t("memorized")}
+            </Button>
+          ) : null
         ) : (
           <Button
             onClick={handleSwitch}
