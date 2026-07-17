@@ -632,6 +632,47 @@ export async function advanceIfExpired(code: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+/** Host edits room settings while in the lobby. */
+export async function updateSettings(
+  code: string,
+  input: {
+    topicSlug?: string;
+    spyCount?: number;
+    mrWhiteCount?: number;
+    turnTimerSeconds?: number | null;
+    describeRounds?: number;
+    maxPlayers?: number;
+  },
+): Promise<ActionResult> {
+  const { userId } = await auth();
+  const room = await prisma.room.findUnique({ where: { code: code.toUpperCase() } });
+  if (!room) return { error: "not_found" };
+  if (!userId || room.hostUserId !== userId) return { error: "forbidden" };
+  if (room.status !== "LOBBY") return { error: "already_started" };
+
+  await prisma.room.update({
+    where: { id: room.id },
+    data: {
+      topicSlug: input.topicSlug ?? room.topicSlug,
+      spyCount: Math.max(1, Math.min(3, Math.floor(input.spyCount ?? room.spyCount))),
+      mrWhiteCount: input.mrWhiteCount === 1 ? 1 : input.mrWhiteCount === 0 ? 0 : room.mrWhiteCount,
+      turnTimerSeconds:
+        input.turnTimerSeconds === undefined
+          ? room.turnTimerSeconds
+          : input.turnTimerSeconds && input.turnTimerSeconds > 0
+            ? Math.min(300, Math.floor(input.turnTimerSeconds))
+            : null,
+      describeRounds: Math.max(
+        1,
+        Math.min(5, Math.floor(input.describeRounds ?? room.describeRounds)),
+      ),
+      maxPlayers: Math.max(3, Math.min(12, Math.floor(input.maxPlayers ?? room.maxPlayers))),
+    },
+  });
+  await broadcastRoom(room.id);
+  return { ok: true };
+}
+
 /** Host resets the room to the lobby for a rematch. */
 export async function playAgain(code: string): Promise<ActionResult> {
   const { userId } = await auth();

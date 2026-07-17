@@ -13,6 +13,7 @@ import {
   Radar,
   RotateCcw,
   Send,
+  Settings,
   ShieldAlert,
   Vote,
 } from "lucide-react";
@@ -171,6 +172,11 @@ export function RoomClient({
 
             {isHost ? (
               <div className="mt-auto flex flex-col gap-2">
+                <Button asChild variant="outline" className="h-11 w-full gap-2">
+                  <Link href={`/room/${code}/settings`}>
+                    <Settings className="size-4" /> {t("settings")}
+                  </Link>
+                </Button>
                 <Button
                   onClick={() =>
                     startTransition(async () => {
@@ -604,6 +610,11 @@ export function RoomClient({
                 ))}
               </ul>
             </div>
+            {!isHost && (
+              <p className="text-classified text-center text-[11px] text-muted-foreground">
+                {t("stayHint")}
+              </p>
+            )}
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
               {isHost && (
                 <Button

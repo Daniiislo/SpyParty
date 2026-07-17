@@ -266,3 +266,32 @@ export async function getMyCard(code: string): Promise<MyCard | null> {
   if (!mp) return null;
   return { role: mapRole(mp.role), word: mp.word };
 }
+
+export interface RoomConfig {
+  hostUserId: string;
+  status: "LOBBY" | "IN_PROGRESS" | "COMPLETED";
+  mode: "online" | "offline";
+  topicSlug: string | null;
+  spyCount: number;
+  mrWhiteCount: number;
+  turnTimerSeconds: number | null;
+  describeRounds: number;
+  maxPlayers: number;
+}
+
+/** The editable room config (for the lobby settings screen). */
+export async function getRoomConfig(code: string): Promise<RoomConfig | null> {
+  const room = await prisma.room.findUnique({ where: { code: code.toUpperCase() } });
+  if (!room) return null;
+  return {
+    hostUserId: room.hostUserId,
+    status: room.status,
+    mode: room.mode === "OFFLINE" ? "offline" : "online",
+    topicSlug: room.topicSlug,
+    spyCount: room.spyCount,
+    mrWhiteCount: room.mrWhiteCount,
+    turnTimerSeconds: room.turnTimerSeconds,
+    describeRounds: room.describeRounds,
+    maxPlayers: room.maxPlayers,
+  };
+}
