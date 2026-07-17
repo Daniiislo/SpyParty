@@ -150,11 +150,17 @@ async function persistMatchResult(matchId: string, winner: Side) {
 }
 
 /** End the match or advance to the next round based on the evaluated outcome. */
+/** A server-authoritative phase deadline, or null when the room is untimed. */
+function deadlineFor(seconds: number | null | undefined): Date | null {
+  return seconds && seconds > 0 ? new Date(Date.now() + seconds * 1000) : null;
+}
+
 async function advanceMatch(
   matchId: string,
   roomId: string,
   roundNumber: number,
   outcome: Outcome,
+  timerSeconds: number | null,
 ) {
   if (outcome.matchOver) {
     await prisma.$transaction([
@@ -165,6 +171,7 @@ async function advanceMatch(
           winnerSide: toWinnerSide(outcome.winner),
           endedAt: new Date(),
           pendingMrWhitePlayerId: null,
+          deadlineAt: null,
         },
       }),
       prisma.room.update({ where: { id: roomId }, data: { status: "COMPLETED" } }),
@@ -177,8 +184,49 @@ async function advanceMatch(
         phase: "DESCRIBING",
         roundNumber: roundNumber + 1,
         pendingMrWhitePlayerId: null,
+        deadlineAt: deadlineFor(timerSeconds),
       },
     });
+  }
+}
+
+/** Tally the round's votes, eliminate, and route to Mr. White / next round / end. */
+async function resolveVotingRound(room: LoadedRoom, match: LoadedMatch) {
+  const state = toGameState(room, match);
+  const votes = await prisma.vote.findMany({
+    where: { matchId: match.id, roundNumber: match.roundNumber },
+  });
+  const voteMap: Record<string, string | null> = {};
+  for (const v of votes) voteMap[v.voterPlayerId] = v.targetPlayerId ?? null;
+  const { eliminatedId } = resolveVote(tallyVotes(voteMap, state));
+
+  if (eliminatedId) {
+    await prisma.matchPlayer.update({
+      where: { matchId_playerId: { matchId: match.id, playerId: eliminatedId } },
+      data: { status: "ELIMINATED", eliminatedRound: match.roundNumber },
+    });
+  }
+  const elimMp = eliminatedId
+    ? match.matchPlayers.find((x: LoadedMatchPlayer) => x.playerId === eliminatedId)
+    : null;
+  if (elimMp && elimMp.role === "MR_WHITE") {
+    await prisma.match.update({
+      where: { id: match.id },
+      data: {
+        phase: "MR_WHITE_GUESS",
+        pendingMrWhitePlayerId: eliminatedId,
+        deadlineAt: null,
+      },
+    });
+  } else {
+    const outcome = evaluateOutcome(applyElimination(state, eliminatedId));
+    await advanceMatch(
+      match.id,
+      room.id,
+      match.roundNumber,
+      outcome,
+      room.turnTimerSeconds,
+    );
   }
 }
 
@@ -189,6 +237,7 @@ export async function createRoom(input: {
   locale: string;
   hostName?: string;
   mrWhiteCount?: number;
+  turnTimerSeconds?: number | null;
 }): Promise<ActionResult> {
   const { userId } = await auth();
   if (!userId) return { error: "unauthorized" };
@@ -201,6 +250,10 @@ export async function createRoom(input: {
   ).slice(0, 24);
   const spyCount = Math.max(1, Math.min(3, Math.floor(input.spyCount || 1)));
   const mrWhiteCount = input.mrWhiteCount === 1 ? 1 : 0;
+  const turnTimerSeconds =
+    input.turnTimerSeconds && input.turnTimerSeconds > 0
+      ? Math.min(300, Math.floor(input.turnTimerSeconds))
+      : null;
   const locale = input.locale === "en" ? "en" : "vi";
 
   for (let attempt = 0; attempt < 6; attempt++) {
@@ -212,6 +265,7 @@ export async function createRoom(input: {
           hostUserId: userId,
           spyCount,
           mrWhiteCount,
+          turnTimerSeconds,
           gameLocale: locale,
           topicSlug: input.topicSlug || null,
           players: {
@@ -308,6 +362,7 @@ export async function startMatch(code: string): Promise<ActionResult> {
         seed,
         civilianWord: wordPair.civilian,
         spyWord: wordPair.spy,
+        deadlineAt: deadlineFor(room.turnTimerSeconds),
         matchPlayers: {
           create: state.players.map((sp) => ({
             playerId: sp.id,
@@ -358,7 +413,10 @@ export async function submitClue(code: string, text: string): Promise<ActionResu
     where: { matchId: match.id, roundNumber: match.roundNumber },
   });
   if (clueCount >= aliveCount) {
-    await prisma.match.update({ where: { id: match.id }, data: { phase: "VOTING" } });
+    await prisma.match.update({
+      where: { id: match.id },
+      data: { phase: "VOTING", deadlineAt: deadlineFor(room.turnTimerSeconds) },
+    });
   }
   await broadcastRoom(room.id);
   return { ok: true };
@@ -404,32 +462,7 @@ export async function castVote(
     where: { matchId: match.id, roundNumber: match.roundNumber },
   });
   if (votes.length >= aliveCount) {
-    const state = toGameState(room, match);
-    const voteMap: Record<string, string | null> = {};
-    for (const v of votes) voteMap[v.voterPlayerId] = v.targetPlayerId ?? null;
-    const { eliminatedId } = resolveVote(tallyVotes(voteMap, state));
-
-    if (eliminatedId) {
-      await prisma.matchPlayer.update({
-        where: { matchId_playerId: { matchId: match.id, playerId: eliminatedId } },
-        data: { status: "ELIMINATED", eliminatedRound: match.roundNumber },
-      });
-    }
-
-    const elimMp = eliminatedId
-      ? match.matchPlayers.find((x: LoadedMatchPlayer) => x.playerId === eliminatedId)
-      : null;
-
-    if (elimMp && elimMp.role === "MR_WHITE") {
-      // Mr. White may steal the win by guessing the civilian word.
-      await prisma.match.update({
-        where: { id: match.id },
-        data: { phase: "MR_WHITE_GUESS", pendingMrWhitePlayerId: eliminatedId },
-      });
-    } else {
-      const outcome = evaluateOutcome(applyElimination(state, eliminatedId));
-      await advanceMatch(match.id, room.id, match.roundNumber, outcome);
-    }
+    await resolveVotingRound(room, match);
   }
   await broadcastRoom(room.id);
   return { ok: true };
@@ -463,9 +496,36 @@ export async function mrWhiteGuess(code: string, guess: string): Promise<ActionR
   } else {
     // Wrong guess — resolve the round normally (Mr. White is already eliminated).
     const outcome = evaluateOutcome(toGameState(room, match));
-    await advanceMatch(match.id, room.id, match.roundNumber, outcome);
+    await advanceMatch(
+      match.id,
+      room.id,
+      match.roundNumber,
+      outcome,
+      room.turnTimerSeconds,
+    );
   }
   await broadcastRoom(room.id);
+  return { ok: true };
+}
+
+/** Client watchdog: advance a timed phase whose server-side deadline has passed. */
+export async function advanceIfExpired(code: string): Promise<ActionResult> {
+  const room = await loadRoom(code);
+  if (!room) return { error: "not_found" };
+  const match = room.matches[0];
+  if (!match || !match.deadlineAt) return { ok: true };
+  if (Date.now() < new Date(match.deadlineAt).getTime()) return { ok: true };
+
+  if (match.phase === "DESCRIBING") {
+    await prisma.match.update({
+      where: { id: match.id },
+      data: { phase: "VOTING", deadlineAt: deadlineFor(room.turnTimerSeconds) },
+    });
+    await broadcastRoom(room.id);
+  } else if (match.phase === "VOTING") {
+    await resolveVotingRound(room, match);
+    await broadcastRoom(room.id);
+  }
   return { ok: true };
 }
 

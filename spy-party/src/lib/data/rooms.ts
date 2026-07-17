@@ -51,6 +51,10 @@ export interface RoomState {
   /** Revealed only at match end. */
   civilianWord: string | null;
   spyWord: string | null;
+  /** Absolute deadline (epoch ms) for the current timed phase, or null. */
+  deadlineAt: number | null;
+  /** Server clock (epoch ms) at fetch time, for client countdown skew. */
+  serverNow: number;
   me: { playerId: string | null; isHost: boolean; signedIn: boolean };
 }
 
@@ -216,6 +220,11 @@ export async function getRoomState(code: string): Promise<RoomState | null> {
     winner: atEnd ? mapWinner(match?.winnerSide ?? null) : null,
     civilianWord: atEnd ? (match?.civilianWord ?? null) : null,
     spyWord: atEnd ? (match?.spyWord ?? null) : null,
+    deadlineAt:
+      (phase === "describing" || phase === "voting") && match?.deadlineAt
+        ? new Date(match.deadlineAt).getTime()
+        : null,
+    serverNow: Date.now(),
     me,
   };
 }
