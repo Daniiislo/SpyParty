@@ -45,6 +45,8 @@ export interface RoomState {
   spyCount: number;
   mrWhiteCount: number;
   blindMode: boolean;
+  maxPlayers: number;
+  topicSlug: string | null;
   topicName: string | null;
   players: PublicPlayer[];
   /** True once every alive player has seen their word (DEALING gate). */
@@ -238,6 +240,8 @@ export async function getRoomState(code: string): Promise<RoomState | null> {
     spyCount: room.spyCount,
     mrWhiteCount: room.mrWhiteCount,
     blindMode: room.blindMode,
+    maxPlayers: room.maxPlayers,
+    topicSlug: room.topicSlug,
     topicName: (() => {
       if (!room.topicSlug) return null;
       const t = getTopic(room.topicSlug);
