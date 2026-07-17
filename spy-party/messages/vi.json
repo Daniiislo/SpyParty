@@ -220,6 +220,7 @@
     "errRoomFull": "Phòng đã đầy.",
     "errNameTaken": "Mật danh đã có người dùng.",
     "errGeneric": "Có lỗi xảy ra. Thử lại nhé.",
+    "errNotEnoughPlayers": "Chưa đủ người cho số gián điệp / Mr. White — hãy thêm người chơi.",
     "mrWhiteLabel": "Mr. White",
     "mrWhiteGuessTitle": "Cơ hội cuối của Mr. White",
     "mrWhiteGuessPrompt": "Đoán từ của người thường để cướp chiến thắng.",

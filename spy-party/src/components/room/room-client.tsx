@@ -60,6 +60,7 @@ export function RoomClient({
   const [selectedVote, setSelectedVote] = useState<string | null>(null);
   const [guess, setGuess] = useState("");
   const [copied, setCopied] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   async function refetch() {
@@ -156,7 +157,21 @@ export function RoomClient({
             {isHost ? (
               <div className="mt-auto flex flex-col gap-2">
                 <Button
-                  onClick={() => act(() => startMatch(code))}
+                  onClick={() =>
+                    startTransition(async () => {
+                      setStartError(null);
+                      const r = await startMatch(code);
+                      if ("error" in r) {
+                        setStartError(
+                          r.error === "not_enough_players"
+                            ? t("errNotEnoughPlayers")
+                            : t("errGeneric"),
+                        );
+                      } else {
+                        await refetch();
+                      }
+                    })
+                  }
                   disabled={pending || state.players.length < MIN_PLAYERS}
                   className="h-12 w-full gap-2 text-sm font-semibold"
                 >
@@ -166,6 +181,9 @@ export function RoomClient({
                   <p className="text-center text-xs text-muted-foreground">
                     {t("minPlayers", { min: MIN_PLAYERS })}
                   </p>
+                )}
+                {startError && (
+                  <p className="text-center text-xs text-destructive">{startError}</p>
                 )}
               </div>
             ) : (
@@ -239,6 +257,14 @@ export function RoomClient({
                 <Input
                   value={clueText}
                   onChange={(e) => setClueText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !pending && clueText.trim()) {
+                      act(async () => {
+                        await submitClue(code, clueText);
+                        setClueText("");
+                      });
+                    }
+                  }}
                   placeholder={t("cluePlaceholder")}
                   maxLength={40}
                   className="h-11"
@@ -356,6 +382,11 @@ export function RoomClient({
                 <Input
                   value={guess}
                   onChange={(e) => setGuess(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !pending && guess.trim()) {
+                      act(() => mrWhiteGuess(code, guess));
+                    }
+                  }}
                   placeholder={t("guessPlaceholder")}
                   maxLength={40}
                   className="h-12"

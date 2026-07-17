@@ -220,6 +220,7 @@
     "errRoomFull": "The room is full.",
     "errNameTaken": "That codename is taken.",
     "errGeneric": "Something went wrong. Try again.",
+    "errNotEnoughPlayers": "Not enough agents for this many spies / Mr. White — add more players.",
     "mrWhiteLabel": "Mr. White",
     "mrWhiteGuessTitle": "Mr. White's last chance",
     "mrWhiteGuessPrompt": "Guess the civilian word to steal the win.",
