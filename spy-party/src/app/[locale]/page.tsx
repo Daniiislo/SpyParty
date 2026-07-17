@@ -3,6 +3,7 @@ import {
   LockOpen,
   Radar,
   ScrollText,
+  Trophy,
   Users,
   UsersRound,
   VenetianMask,
@@ -34,6 +35,7 @@ export default async function Home({ params }: PageProps<"/[locale]">) {
   const steps = await getTranslations("steps");
   const cta = await getTranslations("cta");
   const footer = await getTranslations("footer");
+  const lb = await getTranslations("leaderboard");
 
   return (
     <main className="flex flex-1 flex-col">
@@ -80,6 +82,12 @@ export default async function Home({ params }: PageProps<"/[locale]">) {
               <span>● {hero("stat2")}</span>
               <span>● {hero("stat3")}</span>
             </div>
+            <Link
+              href="/leaderboard"
+              className="text-classified mt-4 inline-flex items-center gap-1.5 text-[11px] text-primary hover:underline"
+            >
+              <Trophy className="size-3.5" /> {lb("title")}
+            </Link>
           </div>
           <div className="w-full max-w-sm flex-1">
             <DossierReveal />
