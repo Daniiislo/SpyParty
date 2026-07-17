@@ -1,0 +1,82 @@
+{
+  "metadata": {
+    "title": "Spy Party — Ai Là Gián Điệp",
+    "description": "Nhận từ bí mật, mô tả thật khéo, và lật mặt kẻ giả danh. Trò chơi suy luận xã hội cho nhóm bạn — chơi online hoặc offline."
+  },
+  "nav": {
+    "classified": "Classified · Briefing",
+    "signIn": "Đăng nhập",
+    "signUp": "Vào cuộc"
+  },
+  "hero": {
+    "badge": "Hồ sơ mật · Briefing",
+    "tagline": "Mỗi người nhận một từ bí mật. Gián điệp nhận từ <hl>gần giống</hl>. Mô tả thật khéo, bỏ phiếu thật tinh — và lật mặt kẻ giả danh trước khi quá muộn.",
+    "createRoom": "Tạo phòng",
+    "joinRoom": "Tham gia phòng",
+    "stat1": "3–12 đặc vụ",
+    "stat2": "Online & Offline",
+    "stat3": "Nhiều chủ đề"
+  },
+  "roles": {
+    "eyebrow": "Phân vai",
+    "heading": "Hai phe, một sự thật",
+    "civilian": {
+      "title": "Người thường",
+      "tag": "Civilian",
+      "desc": "Bạn và đồng đội cùng nhận một từ. Mô tả đủ rõ để nhận ra nhau — nhưng đừng quá lộ liễu, kẻo gián điệp đoán được từ của bạn."
+    },
+    "spy": {
+      "title": "Gián điệp",
+      "tag": "Undercover",
+      "desc": "Bạn nhận một từ gần giống nhưng không biết từ gốc. Hoà vào đám đông, mô tả thật mập mờ, và sống sót qua mỗi vòng bỏ phiếu."
+    }
+  },
+  "steps": {
+    "eyebrow": "Quy trình",
+    "heading": "Một ván diễn ra thế nào",
+    "items": {
+      "01": {
+        "title": "Tạo phòng",
+        "desc": "Chọn số người chơi, số gián điệp và một chủ đề."
+      },
+      "02": {
+        "title": "Nhận từ",
+        "desc": "Mỗi đặc vụ mở hồ sơ mật để xem từ của riêng mình."
+      },
+      "03": {
+        "title": "Mô tả",
+        "desc": "Lần lượt mỗi người nói một từ gợi ý cho từ của mình."
+      },
+      "04": {
+        "title": "Truy tìm",
+        "desc": "Bỏ phiếu loại nghi can. Lật mặt hết gián điệp để thắng."
+      }
+    }
+  },
+  "cta": {
+    "heading": "Sẵn sàng vào vai?",
+    "desc": "Tập hợp đồng đội, phát hồ sơ, và xem ai mới là kẻ giả danh thực sự.",
+    "button": "Bắt đầu nhiệm vụ"
+  },
+  "footer": {
+    "copyright": "© 2026 · Trò chơi suy luận xã hội"
+  },
+  "dossier": {
+    "id": "Hồ sơ #A7-13",
+    "statusSecret": "Tối mật",
+    "statusDecoded": "Đã giải mã",
+    "topicLabel": "Chủ đề",
+    "topic": "Đồ uống",
+    "wordLabel": "Từ của bạn",
+    "youAreSpy": "Bạn là Gián điệp",
+    "youAreCivilian": "Bạn là Người thường",
+    "decode": "Giải mã hồ sơ",
+    "switch": "Đổi góc nhìn",
+    "hintBefore": "Nhấn để xem bạn nhận từ nào",
+    "hintAfter": "Hai từ gần giống để gây nhiễu",
+    "words": {
+      "civilian": "CÀ PHÊ",
+      "spy": "TRÀ SỮA"
+    }
+  }
+}
