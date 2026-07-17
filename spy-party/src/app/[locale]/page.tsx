@@ -9,6 +9,7 @@ import {
   Vote,
 } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { DossierReveal } from "@/components/dossier-reveal";
 
@@ -28,6 +29,7 @@ export default async function Home({ params }: PageProps<"/[locale]">) {
   setRequestLocale(locale);
 
   const hero = await getTranslations("hero");
+  const landing = await getTranslations("landing");
   const roles = await getTranslations("roles");
   const steps = await getTranslations("steps");
   const cta = await getTranslations("cta");
@@ -55,14 +57,21 @@ export default async function Home({ params }: PageProps<"/[locale]">) {
               })}
             </p>
             <div className="mt-8 flex w-full max-w-xs flex-col gap-3 sm:w-auto sm:max-w-none sm:flex-row">
-              <Button className="h-11 w-full gap-2 px-6 text-sm font-semibold sm:w-auto">
-                <Radar className="size-4" /> {hero("createRoom")}
+              <Button
+                asChild
+                className="h-11 w-full gap-2 px-6 text-sm font-semibold sm:w-auto"
+              >
+                <Link href="/offline">
+                  <Radar className="size-4" /> {landing("playOffline")}
+                </Link>
               </Button>
               <Button
                 variant="outline"
+                disabled
+                title={landing("onlineSoon")}
                 className="h-11 w-full gap-2 px-6 text-sm font-semibold sm:w-auto"
               >
-                <Users className="size-4" /> {hero("joinRoom")}
+                <Users className="size-4" /> {landing("onlineSoon")}
               </Button>
             </div>
             <div className="text-classified mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[11px] text-muted-foreground lg:justify-start">
@@ -169,8 +178,13 @@ export default async function Home({ params }: PageProps<"/[locale]">) {
             <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground">
               {cta("desc")}
             </p>
-            <Button className="mt-7 h-11 gap-2 px-6 text-sm font-semibold">
-              <LockOpen className="size-4" /> {cta("button")}
+            <Button
+              asChild
+              className="mt-7 h-11 gap-2 px-6 text-sm font-semibold"
+            >
+              <Link href="/offline">
+                <LockOpen className="size-4" /> {cta("button")}
+              </Link>
             </Button>
           </div>
         </div>
