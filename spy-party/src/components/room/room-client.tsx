@@ -7,6 +7,7 @@ import {
   Check,
   Copy,
   Crown,
+  Eye,
   Home,
   LogOut,
   Radar,
@@ -41,6 +42,7 @@ import {
   leaveRoom,
   mrWhiteGuess,
   playAgain,
+  revealRoles,
   startDescribing,
   startMatch,
   submitClue,
@@ -221,10 +223,14 @@ export function RoomClient({
           </div>
         )}
 
-        {/* ── Dealing: view your word, then ready-gate ── */}
+        {/* ── Dealing: view your word, then ready-gate (online) / reveal (offline) ── */}
         {state.phase === "dealing" && (
           <div className="flex flex-1 flex-col justify-center gap-6">
-            <PhaseBanner eyebrow={t("dealingTitle")} title="SPY PARTY" />
+            <PhaseBanner
+              eyebrow={t("dealingTitle")}
+              title="SPY PARTY"
+              description={state.mode === "offline" ? t("offlinePlaying") : undefined}
+            />
             {card && !mePlayer?.ready && (
               <DossierReveal
                 mode="reveal"
@@ -254,7 +260,22 @@ export function RoomClient({
                 </li>
               ))}
             </ul>
-            {mePlayer?.ready &&
+            {state.mode === "offline" ? (
+              isHost ? (
+                <Button
+                  onClick={() => act(() => revealRoles(code))}
+                  disabled={pending}
+                  className="mt-2 h-12 w-full gap-2 text-sm font-semibold"
+                >
+                  <Eye className="size-4" /> {t("revealRoles")}
+                </Button>
+              ) : (
+                <p className="text-classified mt-2 text-center text-[11px] text-muted-foreground">
+                  {t("waitingReady")}
+                </p>
+              )
+            ) : (
+              mePlayer?.ready &&
               (isHost ? (
                 <Button
                   onClick={() => act(() => startDescribing(code))}
@@ -267,7 +288,8 @@ export function RoomClient({
                 <p className="text-classified mt-2 text-center text-[11px] text-muted-foreground">
                   {t("waitingReady")}
                 </p>
-              ))}
+              ))
+            )}
           </div>
         )}
 
@@ -520,9 +542,9 @@ export function RoomClient({
                 "rounded-2xl border bg-card p-8",
                 state.winner === "civilians"
                   ? "animate-glow-pulse border-primary/40"
-                  : state.winner === "mrWhite"
-                    ? "border-foreground/40"
-                    : "animate-alert-pulse border-destructive/50",
+                  : state.winner === "spies"
+                    ? "animate-alert-pulse border-destructive/50"
+                    : "border-foreground/40",
               )}
             >
               <span className="text-classified text-[11px] text-muted-foreground">
@@ -533,16 +555,18 @@ export function RoomClient({
                   "mt-2 text-3xl font-bold",
                   state.winner === "civilians"
                     ? "text-primary"
-                    : state.winner === "mrWhite"
-                      ? "text-foreground"
-                      : "text-destructive",
+                    : state.winner === "spies"
+                      ? "text-destructive"
+                      : "text-foreground",
                 )}
               >
                 {state.winner === "civilians"
                   ? t("civiliansWin")
-                  : state.winner === "mrWhite"
-                    ? t("mrWhiteWins")
-                    : t("spiesWin")}
+                  : state.winner === "spies"
+                    ? t("spiesWin")
+                    : state.winner === "mrWhite"
+                      ? t("mrWhiteWins")
+                      : t("rolesRevealed")}
               </h1>
               {state.eliminatedPlayerId && (
                 <p className="mt-2 text-sm text-muted-foreground">

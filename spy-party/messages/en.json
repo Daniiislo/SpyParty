@@ -237,7 +237,15 @@
     "yourTurnDescribe": "Your turn — give one clue",
     "waitingTurn": "{name} is describing…",
     "cluesHeading": "Clues",
-    "openVote": "Open vote"
+    "openVote": "Open vote",
+    "modeLabel": "Mode",
+    "modeOnline": "Online",
+    "modeOnlineDesc": "Describe & vote in the app.",
+    "modeOffline": "Offline (deal only)",
+    "modeOfflineDesc": "App deals words; play in person.",
+    "revealRoles": "Reveal roles",
+    "offlinePlaying": "Everyone has their word. Play in person — the host reveals the roles when you're done.",
+    "rolesRevealed": "Roles revealed"
   },
   "leaderboard": {
     "eyebrow": "Top agents",
