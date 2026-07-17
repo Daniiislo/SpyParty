@@ -10,13 +10,10 @@ const handleI18nRouting = createMiddleware(routing);
 export default clerkMiddleware((auth, req) => {
   const { pathname } = req.nextUrl;
 
-  // API, tRPC, and Clerk internal routes must NOT be locale-prefixed. Returning
-  // undefined lets the request continue with only Clerk's handling.
-  if (
-    pathname.startsWith("/api") ||
-    pathname.startsWith("/trpc") ||
-    pathname.startsWith("/__clerk")
-  ) {
+  // API, tRPC, and Clerk internal routes must NOT be locale-prefixed. Match those
+  // roots and their subpaths only (not siblings like /apixyz). Returning undefined
+  // lets the request continue with only Clerk's handling.
+  if (/^\/(?:api|trpc|__clerk)(?:\/|$)/.test(pathname)) {
     return;
   }
 

@@ -33,7 +33,7 @@ export function DossierReveal() {
   const [role, setRole] = useState<Role>("civilian");
   const [revealed, setRevealed] = useState(false);
   const [scrambling, setScrambling] = useState(false);
-  const [display, setDisplay] = useState(() => redact(words.civilian));
+  const [display, setDisplay] = useState("");
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -75,14 +75,14 @@ export function DossierReveal() {
   function handleSwitch() {
     const next: Role = role === "civilian" ? "spy" : "civilian";
     setRole(next);
-    if (revealed) {
-      scrambleTo(words[next]);
-    } else {
-      setDisplay(redact(words[next]));
-    }
+    // The switch control only renders after reveal, so always re-scramble.
+    scrambleTo(words[next]);
   }
 
   const isSpy = role === "spy";
+  // Before reveal (display === "") show the redacted current word, derived live
+  // so it tracks locale and role; during/after reveal show the scrambled/final word.
+  const shown = display || redact(words[role]);
 
   return (
     <div
@@ -131,7 +131,7 @@ export function DossierReveal() {
             revealed && !scrambling && isSpy && "text-destructive",
           )}
         >
-          {display}
+          {shown}
           {scrambling && (
             <span className="ml-0.5 inline-block animate-pulse">▌</span>
           )}
