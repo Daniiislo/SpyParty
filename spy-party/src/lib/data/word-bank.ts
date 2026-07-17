@@ -1,6 +1,6 @@
 import "server-only";
 
-import { makeRng, type WordPair } from "@/lib/game";
+import { GameError, makeRng, type WordPair } from "@/lib/game";
 import {
   getTopic,
   getTopics as bankTopics,
@@ -40,7 +40,9 @@ export async function getOfflineTopics(locale: BankLocale): Promise<TopicOption[
     try {
       const rows = await prisma.topic.findMany({
         where: { isActive: true },
-        orderBy: { sortOrder: "asc" },
+        // Stable ordering: sortOrder first, then name as a deterministic
+        // tiebreak so duplicate sortOrder values never reorder between renders.
+        orderBy: [{ sortOrder: "asc" }, { nameVi: "asc" }, { slug: "asc" }],
         select: { slug: true, nameVi: true, nameEn: true, emoji: true },
       });
       if (rows.length > 0) {
@@ -73,8 +75,15 @@ export async function getOfflinePair(
   const rng = makeRng(`${seed}:pair`);
   const prisma = await tryPrisma();
   if (prisma) {
+    // The DB is the source of truth whenever it is configured.
+    let pairs: Array<{
+      civilianWordVi: string;
+      spyWordVi: string;
+      civilianWordEn: string;
+      spyWordEn: string;
+    }> | null = null;
     try {
-      const pairs = await prisma.wordPair.findMany({
+      pairs = await prisma.wordPair.findMany({
         where: { isActive: true, topic: { slug: topicSlug } },
         select: {
           civilianWordVi: true,
@@ -83,16 +92,27 @@ export async function getOfflinePair(
           spyWordEn: true,
         },
       });
-      if (pairs.length > 0) {
-        const p = pairs[Math.floor(rng() * pairs.length)];
-        return locale === "en"
-          ? { civilian: p.civilianWordEn, spy: p.spyWordEn }
-          : { civilian: p.civilianWordVi, spy: p.spyWordVi };
-      }
     } catch {
-      // fall through to the in-repo bank
+      // A transient DB error — fall through to the in-repo bank below.
+      pairs = null;
     }
+    if (pairs && pairs.length > 0) {
+      const p = pairs[Math.floor(rng() * pairs.length)];
+      return locale === "en"
+        ? { civilian: p.civilianWordEn, spy: p.spyWordEn }
+        : { civilian: p.civilianWordVi, spy: p.spyWordVi };
+    }
+    if (pairs && pairs.length === 0) {
+      // The topic exists in the picker but has no pairs in the DB. Prefer the
+      // in-repo bank for the *same* slug; never silently deal an unrelated
+      // topic's words (which would make the whole round nonsensical).
+      const local = getTopic(topicSlug);
+      if (local) return resolvePair(pickRandomPair(local, rng), locale);
+      throw new GameError(`no active word pairs for topic "${topicSlug}"`);
+    }
+    // pairs === null: DB hiccup — fall through to the offline bank.
   }
+  // No DB configured (e.g. CI build / pure offline): use the in-repo bank.
   const topic = getTopic(topicSlug) ?? bankTopics()[0];
   return resolvePair(pickRandomPair(topic, rng), locale);
 }
