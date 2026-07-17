@@ -23,6 +23,18 @@ if (!url) {
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
 
 async function main() {
+  // Non-destructive: the DB is the source of truth for topics/word pairs and may
+  // hold a much richer, hand-curated set than the in-repo bootstrap bank. Only
+  // seed when the table is empty so re-running `prisma db seed` can never clobber
+  // existing data. Set SEED_FORCE=1 to override (e.g. to top up a fresh DB).
+  const existing = await prisma.topic.count();
+  if (existing > 0 && process.env.SEED_FORCE !== "1") {
+    console.log(
+      `Skipping seed: ${existing} topic(s) already present. Set SEED_FORCE=1 to override.`,
+    );
+    return;
+  }
+
   let topics = 0;
   let pairs = 0;
   for (const [i, topic] of WORD_BANK.entries()) {
