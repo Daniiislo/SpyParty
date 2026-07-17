@@ -1,0 +1,252 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["spy_party"]
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+
+  @@schema("spy_party")
+}
+
+/// A theme players choose at setup; word pairs belong to a topic. Bilingual
+/// display (VI/EN) so the UI can render in the active locale.
+model Topic {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  nameVi      String
+  nameEn      String
+  emoji       String?
+  isActive    Boolean    @default(true)
+  sortOrder   Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  wordPairs   WordPair[]
+
+  @@index([isActive, sortOrder])
+  @@schema("spy_party")
+}
+
+/// A confusable civilian/spy word pair. Both languages live in one row so a
+/// pair is one semantic unit and the two locales can never drift apart; the
+/// room picks the locale at deal time.
+model WordPair {
+  id             String     @id @default(cuid())
+  topicId        String
+  topic          Topic      @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  slug           String
+  civilianWordVi String
+  spyWordVi      String
+  civilianWordEn String
+  spyWordEn      String
+  difficulty     Difficulty @default(MEDIUM)
+  isActive       Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@unique([topicId, slug])
+  @@index([topicId, isActive])
+  @@schema("spy_party")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Online rooms
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum RoomMode {
+  ONLINE
+  OFFLINE
+
+  @@schema("spy_party")
+}
+
+enum RoomStatus {
+  LOBBY
+  IN_PROGRESS
+  COMPLETED
+
+  @@schema("spy_party")
+}
+
+enum MatchPhase {
+  DEALING
+  DESCRIBING
+  VOTING
+  ELIMINATION
+  MR_WHITE_GUESS
+  MATCH_END
+
+  @@schema("spy_party")
+}
+
+enum PlayerRole {
+  CIVILIAN
+  SPY
+  MR_WHITE
+
+  @@schema("spy_party")
+}
+
+enum PlayerStatus {
+  ALIVE
+  ELIMINATED
+
+  @@schema("spy_party")
+}
+
+enum WinnerSide {
+  CIVILIANS
+  SPIES
+  MR_WHITE
+  NONE
+
+  @@schema("spy_party")
+}
+
+/// A persistent online room with a short join code. The host is a signed-in
+/// Clerk user; guests join with just a display name. Postgres is the source of
+/// truth; Supabase Realtime only carries "state changed" pokes.
+model Room {
+  id           String     @id @default(cuid())
+  code         String     @unique
+  status       RoomStatus @default(LOBBY)
+  hostUserId       String
+  mode             RoomMode   @default(ONLINE)
+  topicSlug        String?
+  spyCount         Int        @default(1)
+  mrWhiteCount     Int        @default(0)
+  turnTimerSeconds Int?
+  describeRounds   Int        @default(2)
+  maxPlayers       Int        @default(10)
+  gameLocale       String     @default("vi")
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  expiresAt    DateTime?
+  players      Player[]
+  matches      Match[]
+
+  @@index([status])
+  @@index([hostUserId])
+  @@schema("spy_party")
+}
+
+/// A seat/identity inside a room, persisting across matches. The host links a
+/// Clerk `userId`; guests are identified by a signed session cookie carrying
+/// this row's id (no account).
+model Player {
+  id           String        @id @default(cuid())
+  roomId       String
+  room         Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  displayName  String
+  userId       String?
+  isHost       Boolean       @default(false)
+  seatOrder    Int
+  createdAt    DateTime      @default(now())
+  matchPlayers MatchPlayer[]
+
+  @@unique([roomId, displayName])
+  @@unique([roomId, seatOrder])
+  @@index([roomId])
+  @@schema("spy_party")
+}
+
+/// One playthrough. Roles/words are dealt server-side and stored on MatchPlayer;
+/// the civilian/spy words live here only for the end-of-match reveal.
+model Match {
+  id           String        @id @default(cuid())
+  roomId       String
+  room         Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  phase        MatchPhase    @default(DEALING)
+  roundNumber  Int           @default(1)
+  describeRound Int          @default(1)
+  currentTurnPlayerId String?
+  civilianWord String?
+  spyWord      String?
+  seed         String
+  winnerSide   WinnerSide?
+  /// When phase = MR_WHITE_GUESS, the eliminated Mr. White who may steal the win.
+  pendingMrWhitePlayerId String?
+  /// Server-authoritative deadline for the current timed phase (describe/vote).
+  deadlineAt   DateTime?
+  createdAt    DateTime      @default(now())
+  endedAt      DateTime?
+  matchPlayers MatchPlayer[]
+  clues        Clue[]
+  votes        Vote[]
+
+  @@index([roomId])
+  @@schema("spy_party")
+}
+
+/// Per-match role/word assignment and lifecycle for one player.
+model MatchPlayer {
+  id              String       @id @default(cuid())
+  matchId         String
+  match           Match        @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  playerId        String
+  player          Player       @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  role            PlayerRole
+  word            String?
+  status          PlayerStatus @default(ALIVE)
+  eliminatedRound Int?
+  ready           Boolean      @default(false)
+  pointsAwarded   Int          @default(0)
+  isWinner        Boolean      @default(false)
+
+  @@unique([matchId, playerId])
+  @@index([matchId])
+  @@schema("spy_party")
+}
+
+/// Lifetime aggregate per signed-in (Clerk) player, for the leaderboard. Guests
+/// (no account) don't accrue; the schema supports linking them later.
+model LeaderboardStat {
+  id          String   @id @default(cuid())
+  clerkUserId String   @unique
+  displayName String
+  gamesPlayed Int      @default(0)
+  gamesWon    Int      @default(0)
+  totalPoints Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  @@index([totalPoints])
+  @@schema("spy_party")
+}
+
+/// A describe-phase clue submitted by a player in a given round.
+model Clue {
+  id           String   @id @default(cuid())
+  matchId      String
+  match        Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  roundNumber  Int
+  describeRound Int     @default(1)
+  playerId     String
+  text         String
+  createdAt    DateTime @default(now())
+
+  @@unique([matchId, roundNumber, describeRound, playerId])
+  @@index([matchId, roundNumber])
+  @@schema("spy_party")
+}
+
+/// One vote per voter per round (null target = abstain).
+model Vote {
+  id             String   @id @default(cuid())
+  matchId        String
+  match          Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  roundNumber    Int
+  voterPlayerId  String
+  targetPlayerId String?
+  createdAt      DateTime @default(now())
+
+  @@unique([matchId, roundNumber, voterPlayerId])
+  @@index([matchId, roundNumber])
+  @@schema("spy_party")
+}
