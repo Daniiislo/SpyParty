@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Check,
+  EyeOff,
   Fingerprint,
   LockOpen,
   RefreshCw,
@@ -42,6 +43,11 @@ export interface DossierRevealProps {
   topic?: string;
   /** `"demo"` = landing preview (default); `"reveal"` = in-game hand-off reveal. */
   mode?: "demo" | "reveal";
+  /**
+   * Blind mode (reveal only): show the word but hide the role — neutral styling,
+   * no "you are the spy/civilian" badge — so the player must deduce their side.
+   */
+  blind?: boolean;
   /** Called after the player confirms they memorized their word (reveal mode). */
   onDone?: () => void;
 }
@@ -60,10 +66,12 @@ export function DossierReveal({
   role: roleProp,
   topic: topicProp,
   mode = "demo",
+  blind = false,
   onDone,
 }: DossierRevealProps) {
   const t = useTranslations("dossier");
   const isReveal = mode === "reveal";
+  const blindReveal = isReveal && blind;
 
   // Demo sample words, read inside the component so they follow the active
   // locale and play nice with the React Compiler.
@@ -139,9 +147,10 @@ export function DossierReveal({
     scrambleTo(wordFor(next));
   }
 
-  const isSpy = role === "spy";
-  const isMrWhite = role === "mrWhite";
-  const isCivilian = role === "civilian";
+  // Blind reveal suppresses all role-tinted styling and the role badge.
+  const isSpy = !blindReveal && role === "spy";
+  const isMrWhite = !blindReveal && role === "mrWhite";
+  const isCivilian = !blindReveal && role === "civilian";
   const shown = display || redact(currentWord);
 
   return (
@@ -152,6 +161,7 @@ export function DossierReveal({
         revealed && isCivilian && "animate-glow-pulse border-primary/40",
         revealed && isSpy && "animate-alert-pulse border-destructive/50",
         revealed && isMrWhite && "border-foreground/30",
+        revealed && blindReveal && "border-foreground/30",
       )}
     >
       <div className="animate-scanline pointer-events-none absolute inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
@@ -167,6 +177,7 @@ export function DossierReveal({
             revealed && isCivilian && "border-primary/40 text-primary",
             revealed && isSpy && "border-destructive/50 text-destructive",
             revealed && isMrWhite && "border-foreground/40 text-foreground",
+            revealed && blindReveal && "border-foreground/40 text-foreground",
           )}
         >
           {revealed ? t("statusDecoded") : t("statusSecret")}
@@ -192,6 +203,7 @@ export function DossierReveal({
             revealed && !scrambling && isCivilian && "text-primary",
             revealed && !scrambling && isSpy && "text-destructive",
             revealed && !scrambling && isMrWhite && "text-foreground",
+            revealed && !scrambling && blindReveal && "text-foreground",
           )}
         >
           {shown}
@@ -202,7 +214,7 @@ export function DossierReveal({
       </div>
 
       <div className="mt-5 h-7">
-        {revealed && !scrambling && (
+        {revealed && !scrambling && !blindReveal && (
           <span
             className={cn(
               "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium",
@@ -226,6 +238,11 @@ export function DossierReveal({
                 <VenetianMask className="size-3.5" /> {t("youAreMrWhite")}
               </>
             )}
+          </span>
+        )}
+        {revealed && !scrambling && blindReveal && (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-foreground/30 bg-foreground/5 px-3 py-1 text-xs font-medium text-foreground">
+            <EyeOff className="size-3.5" /> {t("blindIdentity")}
           </span>
         )}
       </div>

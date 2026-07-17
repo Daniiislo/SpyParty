@@ -43,6 +43,8 @@ export interface RoomState {
   describeRounds: number;
   hostUserId: string;
   spyCount: number;
+  mrWhiteCount: number;
+  blindMode: boolean;
   topicName: string | null;
   players: PublicPlayer[];
   /** True once every alive player has seen their word (DEALING gate). */
@@ -70,8 +72,11 @@ export interface RoomState {
 }
 
 export interface MyCard {
-  role: Role;
+  /** The player's role, or `null` while blind mode hides it (until match end). */
+  role: Role | null;
   word: string | null;
+  /** True when the room is in blind mode and the role is intentionally hidden. */
+  blind: boolean;
 }
 
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -231,6 +236,8 @@ export async function getRoomState(code: string): Promise<RoomState | null> {
     describeRounds: room.describeRounds,
     hostUserId: room.hostUserId,
     spyCount: room.spyCount,
+    mrWhiteCount: room.mrWhiteCount,
+    blindMode: room.blindMode,
     topicName: (() => {
       if (!room.topicSlug) return null;
       const t = getTopic(room.topicSlug);
@@ -276,7 +283,14 @@ export async function getMyCard(code: string): Promise<MyCard | null> {
   if (!match) return null;
   const mp = match.matchPlayers.find((x) => x.playerId === me.playerId);
   if (!mp) return null;
-  return { role: mapRole(mp.role), word: mp.word };
+  // In blind mode we never send the role to the client until the match ends, so
+  // the player genuinely cannot know whether they are the spy.
+  const blind = room.blindMode && match.phase !== "MATCH_END";
+  return {
+    role: blind ? null : mapRole(mp.role),
+    word: mp.word,
+    blind,
+  };
 }
 
 export interface RoomConfig {
@@ -286,6 +300,7 @@ export interface RoomConfig {
   topicSlug: string | null;
   spyCount: number;
   mrWhiteCount: number;
+  blindMode: boolean;
   turnTimerSeconds: number | null;
   describeRounds: number;
   maxPlayers: number;
@@ -302,6 +317,7 @@ export async function getRoomConfig(code: string): Promise<RoomConfig | null> {
     topicSlug: room.topicSlug,
     spyCount: room.spyCount,
     mrWhiteCount: room.mrWhiteCount,
+    blindMode: room.blindMode,
     turnTimerSeconds: room.turnTimerSeconds,
     describeRounds: room.describeRounds,
     maxPlayers: room.maxPlayers,
