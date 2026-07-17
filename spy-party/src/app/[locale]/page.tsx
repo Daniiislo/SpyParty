@@ -61,17 +61,18 @@ export default async function Home({ params }: PageProps<"/[locale]">) {
                 asChild
                 className="h-11 w-full gap-2 px-6 text-sm font-semibold sm:w-auto"
               >
-                <Link href="/offline">
-                  <Radar className="size-4" /> {landing("playOffline")}
+                <Link href="/create">
+                  <Radar className="size-4" /> {hero("createRoom")}
                 </Link>
               </Button>
               <Button
+                asChild
                 variant="outline"
-                disabled
-                title={landing("onlineSoon")}
                 className="h-11 w-full gap-2 px-6 text-sm font-semibold sm:w-auto"
               >
-                <Users className="size-4" /> {landing("onlineSoon")}
+                <Link href="/join">
+                  <Users className="size-4" /> {hero("joinRoom")}
+                </Link>
               </Button>
             </div>
             <div className="text-classified mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[11px] text-muted-foreground lg:justify-start">
@@ -183,7 +184,7 @@ export default async function Home({ params }: PageProps<"/[locale]">) {
               className="mt-7 h-11 gap-2 px-6 text-sm font-semibold"
             >
               <Link href="/offline">
-                <LockOpen className="size-4" /> {cta("button")}
+                <LockOpen className="size-4" /> {landing("playOffline")}
               </Link>
             </Button>
           </div>

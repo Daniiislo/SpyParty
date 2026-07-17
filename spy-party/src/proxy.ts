@@ -7,6 +7,10 @@ const handleI18nRouting = createMiddleware(routing);
 // Compose Clerk auth with next-intl locale routing in a single proxy (Next 16
 // renamed middleware → proxy). Clerk wraps everything so auth context is always
 // attached; next-intl handles locale detection/redirects for page routes only.
+//
+// Host-only gating (create room) is done in-page via `auth()` + a Clerk modal
+// (the app uses modal sign-in, no dedicated sign-in route), and every host
+// Server Action re-verifies `auth()` server-side — that is the real gate.
 export default clerkMiddleware((auth, req) => {
   const { pathname } = req.nextUrl;
 
