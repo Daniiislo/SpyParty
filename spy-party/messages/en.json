@@ -245,7 +245,12 @@
     "modeOfflineDesc": "App deals words; play in person.",
     "revealRoles": "Reveal roles",
     "offlinePlaying": "Everyone has their word. Play in person — the host reveals the roles when you're done.",
-    "rolesRevealed": "Roles revealed"
+    "rolesRevealed": "Roles revealed",
+    "settingsTitle": "Room settings",
+    "settings": "Settings",
+    "save": "Save",
+    "maxPlayersLabel": "Max players",
+    "stayHint": "Stay in the room — the host can start a new game."
   },
   "leaderboard": {
     "eyebrow": "Top agents",

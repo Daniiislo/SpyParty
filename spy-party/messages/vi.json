@@ -245,7 +245,12 @@
     "modeOfflineDesc": "App chia từ; chơi trực tiếp ngoài đời.",
     "revealRoles": "Lộ diện vai trò",
     "offlinePlaying": "Mọi người đã có từ. Chơi trực tiếp — chủ phòng bấm lộ diện khi xong.",
-    "rolesRevealed": "Đã lộ diện"
+    "rolesRevealed": "Đã lộ diện",
+    "settingsTitle": "Cài đặt phòng",
+    "settings": "Cài đặt",
+    "save": "Lưu",
+    "maxPlayersLabel": "Số người tối đa",
+    "stayHint": "Ở lại phòng — chủ phòng có thể bắt đầu ván mới."
   },
   "leaderboard": {
     "eyebrow": "Đặc vụ hàng đầu",
