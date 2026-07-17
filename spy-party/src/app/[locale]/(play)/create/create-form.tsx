@@ -8,6 +8,7 @@ import { useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ActionOverlay } from "@/components/action-overlay";
 import { NumberStepper } from "@/components/number-stepper";
 import { PhaseBanner } from "@/components/phase-banner";
 import { Switch } from "@/components/ui/switch";
@@ -57,6 +58,7 @@ export function CreateRoomForm({
 
   return (
     <main className="bg-blueprint relative flex min-h-dvh flex-col">
+      <ActionOverlay active={pending} label={tc("loading")} />
       <div className="glow-hero pointer-events-none absolute inset-0" />
       <div className="relative mx-auto w-full max-w-lg px-4 py-12 sm:px-6 sm:py-16">
         <PhaseBanner
@@ -135,59 +137,63 @@ export function CreateRoomForm({
           />
         </section>
 
-        <section className="mt-8 flex items-center justify-between gap-4">
-          <Label className="text-classified text-[11px] text-muted-foreground">
-            {t("timerLabel")}
-          </Label>
-          <div className="flex gap-1.5">
-            {([null, 10, 15, 20] as const).map((opt) => {
-              const active = turnTimer === opt;
-              return (
-                <button
-                  key={String(opt)}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => setTurnTimer(opt)}
-                  className={cn(
-                    "h-9 rounded-lg border px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    active
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border hover:bg-muted",
-                  )}
-                >
-                  {opt === null ? t("timerOff") : `${opt}s`}
-                </button>
-              );
-            })}
-          </div>
-        </section>
+        {mode === "online" && (
+          <>
+            <section className="mt-8 flex items-center justify-between gap-4">
+              <Label className="text-classified text-[11px] text-muted-foreground">
+                {t("timerLabel")}
+              </Label>
+              <div className="flex gap-1.5">
+                {([null, 10, 15, 20] as const).map((opt) => {
+                  const active = turnTimer === opt;
+                  return (
+                    <button
+                      key={String(opt)}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => setTurnTimer(opt)}
+                      className={cn(
+                        "h-9 rounded-lg border px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        active
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border hover:bg-muted",
+                      )}
+                    >
+                      {opt === null ? t("timerOff") : `${opt}s`}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
 
-        <section className="mt-8 flex items-center justify-between gap-4">
-          <Label className="text-classified text-[11px] text-muted-foreground">
-            {t("roundsLabel")}
-          </Label>
-          <div className="flex gap-1.5">
-            {([1, 2, 3] as const).map((opt) => {
-              const active = describeRounds === opt;
-              return (
-                <button
-                  key={opt}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => setDescribeRounds(opt)}
-                  className={cn(
-                    "size-9 rounded-lg border text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    active
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border hover:bg-muted",
-                  )}
-                >
-                  {opt}
-                </button>
-              );
-            })}
-          </div>
-        </section>
+            <section className="mt-8 flex items-center justify-between gap-4">
+              <Label className="text-classified text-[11px] text-muted-foreground">
+                {t("roundsLabel")}
+              </Label>
+              <div className="flex gap-1.5">
+                {([1, 2, 3] as const).map((opt) => {
+                  const active = describeRounds === opt;
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => setDescribeRounds(opt)}
+                      className={cn(
+                        "size-9 rounded-lg border text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        active
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border hover:bg-muted",
+                      )}
+                    >
+                      {opt}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          </>
+        )}
 
         <section className="mt-8">
           <Label className="text-classified text-[11px] text-muted-foreground">
