@@ -27,6 +27,7 @@ export function CreateRoomForm({
   const tc = useTranslations("common");
   const router = useRouter();
 
+  const [mode, setMode] = useState<"online" | "offline">("online");
   const [hostName, setHostName] = useState("");
   const [spyCount, setSpyCount] = useState(1);
   const [mrWhite, setMrWhite] = useState(false);
@@ -40,6 +41,7 @@ export function CreateRoomForm({
     startTransition(async () => {
       setError(null);
       const res = await createRoom({
+        mode,
         spyCount,
         topicSlug,
         locale,
@@ -63,7 +65,39 @@ export function CreateRoomForm({
           description={t("createDesc")}
         />
 
-        <section className="mt-10">
+        <section className="mt-8">
+          <Label className="text-classified text-[11px] text-muted-foreground">
+            {t("modeLabel")}
+          </Label>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {(["online", "offline"] as const).map((m) => {
+              const active = mode === m;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setMode(m)}
+                  className={cn(
+                    "rounded-lg border p-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+                    active
+                      ? "border-primary ring-2 ring-primary/50"
+                      : "border-border hover:bg-muted",
+                  )}
+                >
+                  <span className="block text-sm font-semibold">
+                    {t(m === "online" ? "modeOnline" : "modeOffline")}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    {t(m === "online" ? "modeOnlineDesc" : "modeOfflineDesc")}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="mt-8">
           <Label className="text-classified text-[11px] text-muted-foreground">
             {t("hostNameLabel")}
           </Label>
