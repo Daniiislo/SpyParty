@@ -55,3 +55,160 @@ model WordPair {
   @@index([topicId, isActive])
   @@schema("spy_party")
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Online rooms
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum RoomStatus {
+  LOBBY
+  IN_PROGRESS
+  COMPLETED
+
+  @@schema("spy_party")
+}
+
+enum MatchPhase {
+  DEALING
+  DESCRIBING
+  VOTING
+  ELIMINATION
+  MATCH_END
+
+  @@schema("spy_party")
+}
+
+enum PlayerRole {
+  CIVILIAN
+  SPY
+  MR_WHITE
+
+  @@schema("spy_party")
+}
+
+enum PlayerStatus {
+  ALIVE
+  ELIMINATED
+
+  @@schema("spy_party")
+}
+
+enum WinnerSide {
+  CIVILIANS
+  SPIES
+  MR_WHITE
+  NONE
+
+  @@schema("spy_party")
+}
+
+/// A persistent online room with a short join code. The host is a signed-in
+/// Clerk user; guests join with just a display name. Postgres is the source of
+/// truth; Supabase Realtime only carries "state changed" pokes.
+model Room {
+  id           String     @id @default(cuid())
+  code         String     @unique
+  status       RoomStatus @default(LOBBY)
+  hostUserId   String
+  topicSlug    String?
+  spyCount     Int        @default(1)
+  gameLocale   String     @default("vi")
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  expiresAt    DateTime?
+  players      Player[]
+  matches      Match[]
+
+  @@index([status])
+  @@index([hostUserId])
+  @@schema("spy_party")
+}
+
+/// A seat/identity inside a room, persisting across matches. The host links a
+/// Clerk `userId`; guests are identified by a signed session cookie carrying
+/// this row's id (no account).
+model Player {
+  id           String        @id @default(cuid())
+  roomId       String
+  room         Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  displayName  String
+  userId       String?
+  isHost       Boolean       @default(false)
+  seatOrder    Int
+  createdAt    DateTime      @default(now())
+  matchPlayers MatchPlayer[]
+
+  @@unique([roomId, displayName])
+  @@unique([roomId, seatOrder])
+  @@index([roomId])
+  @@schema("spy_party")
+}
+
+/// One playthrough. Roles/words are dealt server-side and stored on MatchPlayer;
+/// the civilian/spy words live here only for the end-of-match reveal.
+model Match {
+  id           String        @id @default(cuid())
+  roomId       String
+  room         Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  phase        MatchPhase    @default(DEALING)
+  roundNumber  Int           @default(1)
+  civilianWord String?
+  spyWord      String?
+  seed         String
+  winnerSide   WinnerSide?
+  createdAt    DateTime      @default(now())
+  endedAt      DateTime?
+  matchPlayers MatchPlayer[]
+  clues        Clue[]
+  votes        Vote[]
+
+  @@index([roomId])
+  @@schema("spy_party")
+}
+
+/// Per-match role/word assignment and lifecycle for one player.
+model MatchPlayer {
+  id              String       @id @default(cuid())
+  matchId         String
+  match           Match        @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  playerId        String
+  player          Player       @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  role            PlayerRole
+  word            String?
+  status          PlayerStatus @default(ALIVE)
+  eliminatedRound Int?
+
+  @@unique([matchId, playerId])
+  @@index([matchId])
+  @@schema("spy_party")
+}
+
+/// A describe-phase clue submitted by a player in a given round.
+model Clue {
+  id          String   @id @default(cuid())
+  matchId     String
+  match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  roundNumber Int
+  playerId    String
+  text        String
+  createdAt   DateTime @default(now())
+
+  @@unique([matchId, roundNumber, playerId])
+  @@index([matchId, roundNumber])
+  @@schema("spy_party")
+}
+
+/// One vote per voter per round (null target = abstain).
+model Vote {
+  id             String   @id @default(cuid())
+  matchId        String
+  match          Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  roundNumber    Int
+  voterPlayerId  String
+  targetPlayerId String?
+  createdAt      DateTime @default(now())
+
+  @@unique([matchId, roundNumber, voterPlayerId])
+  @@index([matchId, roundNumber])
+  @@schema("spy_party")
+}
