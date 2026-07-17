@@ -149,43 +149,116 @@ async function persistMatchResult(matchId: string, winner: Side) {
   }
 }
 
-/** End the match or advance to the next round based on the evaluated outcome. */
 /** A server-authoritative phase deadline, or null when the room is untimed. */
 function deadlineFor(seconds: number | null | undefined): Date | null {
   return seconds && seconds > 0 ? new Date(Date.now() + seconds * 1000) : null;
 }
 
-async function advanceMatch(
-  matchId: string,
-  roomId: string,
-  roundNumber: number,
+/** Alive playerIds in seat order (from a loaded room + match). */
+function aliveSortedIds(room: LoadedRoom, match: LoadedMatch): string[] {
+  const alive = new Set(
+    match.matchPlayers
+      .filter((mp: LoadedMatchPlayer) => mp.status === "ALIVE")
+      .map((mp: LoadedMatchPlayer) => mp.playerId),
+  );
+  return room.players
+    .filter((p: LoadedPlayer) => alive.has(p.id))
+    .map((p: LoadedPlayer) => p.id);
+}
+
+/**
+ * End the match (persist scores) or begin the next elimination round's describe
+ * phase. Alive players come from the engine `state` (post-elimination), so the
+ * new turn order excludes anyone just voted out.
+ */
+async function endOrNextRound(
+  room: LoadedRoom,
+  match: LoadedMatch,
+  state: GameState,
   outcome: Outcome,
-  timerSeconds: number | null,
 ) {
   if (outcome.matchOver) {
     await prisma.$transaction([
       prisma.match.update({
-        where: { id: matchId },
+        where: { id: match.id },
         data: {
           phase: "MATCH_END",
           winnerSide: toWinnerSide(outcome.winner),
           endedAt: new Date(),
           pendingMrWhitePlayerId: null,
           deadlineAt: null,
+          currentTurnPlayerId: null,
         },
       }),
-      prisma.room.update({ where: { id: roomId }, data: { status: "COMPLETED" } }),
+      prisma.room.update({ where: { id: room.id }, data: { status: "COMPLETED" } }),
     ]);
-    await persistMatchResult(matchId, outcome.winner);
+    await persistMatchResult(match.id, outcome.winner);
   } else {
+    const aliveIds = state.players
+      .filter((p) => p.status === "alive")
+      .sort((a, b) => a.seatOrder - b.seatOrder)
+      .map((p) => p.id);
     await prisma.match.update({
-      where: { id: matchId },
+      where: { id: match.id },
       data: {
         phase: "DESCRIBING",
-        roundNumber: roundNumber + 1,
+        roundNumber: match.roundNumber + 1,
+        describeRound: 1,
+        currentTurnPlayerId: aliveIds[0] ?? null,
+        deadlineAt: deadlineFor(room.turnTimerSeconds),
         pendingMrWhitePlayerId: null,
-        deadlineAt: deadlineFor(timerSeconds),
       },
+    });
+  }
+}
+
+/** Advance the describe turn: next alive player, next describe round, or voting. */
+async function submitClueAndAdvance(
+  room: LoadedRoom,
+  match: LoadedMatch,
+  playerId: string,
+  text: string,
+) {
+  await prisma.clue.upsert({
+    where: {
+      matchId_roundNumber_describeRound_playerId: {
+        matchId: match.id,
+        roundNumber: match.roundNumber,
+        describeRound: match.describeRound,
+        playerId,
+      },
+    },
+    create: {
+      matchId: match.id,
+      roundNumber: match.roundNumber,
+      describeRound: match.describeRound,
+      playerId,
+      text,
+    },
+    update: { text },
+  });
+
+  const alive = aliveSortedIds(room, match);
+  const idx = alive.indexOf(playerId);
+  const next = idx >= 0 && idx + 1 < alive.length ? alive[idx + 1] : null;
+  if (next) {
+    await prisma.match.update({
+      where: { id: match.id },
+      data: { currentTurnPlayerId: next, deadlineAt: deadlineFor(room.turnTimerSeconds) },
+    });
+  } else if (match.describeRound < room.describeRounds) {
+    await prisma.match.update({
+      where: { id: match.id },
+      data: {
+        describeRound: match.describeRound + 1,
+        currentTurnPlayerId: alive[0] ?? null,
+        deadlineAt: deadlineFor(room.turnTimerSeconds),
+      },
+    });
+  } else {
+    await prisma.match.update({
+      where: { id: match.id },
+      data: { phase: "VOTING", currentTurnPlayerId: null, deadlineAt: null },
     });
   }
 }
@@ -206,28 +279,23 @@ async function resolveVotingRound(room: LoadedRoom, match: LoadedMatch) {
       data: { status: "ELIMINATED", eliminatedRound: match.roundNumber },
     });
   }
-  const elimMp = eliminatedId
-    ? match.matchPlayers.find((x: LoadedMatchPlayer) => x.playerId === eliminatedId)
+  const elimRole = eliminatedId
+    ? state.players.find((p) => p.id === eliminatedId)?.role
     : null;
-  if (elimMp && elimMp.role === "MR_WHITE") {
+  if (elimRole === "mrWhite") {
     await prisma.match.update({
       where: { id: match.id },
       data: {
         phase: "MR_WHITE_GUESS",
         pendingMrWhitePlayerId: eliminatedId,
         deadlineAt: null,
+        currentTurnPlayerId: null,
       },
     });
-  } else {
-    const outcome = evaluateOutcome(applyElimination(state, eliminatedId));
-    await advanceMatch(
-      match.id,
-      room.id,
-      match.roundNumber,
-      outcome,
-      room.turnTimerSeconds,
-    );
+    return;
   }
+  const after = applyElimination(state, eliminatedId);
+  await endOrNextRound(room, match, after, evaluateOutcome(after));
 }
 
 /** Host creates a room. Requires a signed-in Clerk user. */
@@ -238,6 +306,7 @@ export async function createRoom(input: {
   hostName?: string;
   mrWhiteCount?: number;
   turnTimerSeconds?: number | null;
+  describeRounds?: number;
 }): Promise<ActionResult> {
   const { userId } = await auth();
   if (!userId) return { error: "unauthorized" };
@@ -254,6 +323,7 @@ export async function createRoom(input: {
     input.turnTimerSeconds && input.turnTimerSeconds > 0
       ? Math.min(300, Math.floor(input.turnTimerSeconds))
       : null;
+  const describeRounds = Math.max(1, Math.min(5, Math.floor(input.describeRounds || 2)));
   const locale = input.locale === "en" ? "en" : "vi";
 
   for (let attempt = 0; attempt < 6; attempt++) {
@@ -266,6 +336,7 @@ export async function createRoom(input: {
           spyCount,
           mrWhiteCount,
           turnTimerSeconds,
+          describeRounds,
           gameLocale: locale,
           topicSlug: input.topicSlug || null,
           players: {
@@ -358,12 +429,14 @@ export async function startMatch(code: string): Promise<ActionResult> {
     prisma.match.create({
       data: {
         roomId: room.id,
-        phase: "DESCRIBING",
+        // Everyone views their word first (DEALING); the host starts describing
+        // once all are ready.
+        phase: "DEALING",
         roundNumber: 1,
+        describeRound: 1,
         seed,
         civilianWord: wordPair.civilian,
         spyWord: wordPair.spy,
-        deadlineAt: deadlineFor(room.turnTimerSeconds),
         matchPlayers: {
           create: state.players.map((sp) => ({
             playerId: sp.id,
@@ -379,46 +452,57 @@ export async function startMatch(code: string): Promise<ActionResult> {
   return { ok: true };
 }
 
-/** Submit this round's clue (one per alive player); advances to voting when all in. */
-export async function submitClue(code: string, text: string): Promise<ActionResult> {
-  const clue = text.trim().slice(0, 40);
-  if (!clue) return { error: "empty" };
+/** A player acknowledges they've seen their word (gates the start of describing). */
+export async function ackReady(code: string): Promise<ActionResult> {
+  const room = await loadRoom(code);
+  if (!room) return { error: "not_found" };
+  const match = room.matches[0];
+  if (!match || match.phase !== "DEALING") return { ok: true };
+  const me = await resolveCaller(room);
+  if (!me.playerId) return { error: "not_a_player" };
+  await prisma.matchPlayer.update({
+    where: { matchId_playerId: { matchId: match.id, playerId: me.playerId } },
+    data: { ready: true },
+  });
+  await broadcastRoom(room.id);
+  return { ok: true };
+}
 
+/** Host starts the describe phase (turn order + first turn's timer). */
+export async function startDescribing(code: string): Promise<ActionResult> {
+  const { userId } = await auth();
+  const room = await loadRoom(code);
+  if (!room) return { error: "not_found" };
+  if (!userId || room.hostUserId !== userId) return { error: "forbidden" };
+  const match = room.matches[0];
+  if (!match || match.phase !== "DEALING") return { error: "wrong_phase" };
+  const alive = aliveSortedIds(room, match);
+  await prisma.match.update({
+    where: { id: match.id },
+    data: {
+      phase: "DESCRIBING",
+      describeRound: 1,
+      currentTurnPlayerId: alive[0] ?? null,
+      deadlineAt: deadlineFor(room.turnTimerSeconds),
+    },
+  });
+  await broadcastRoom(room.id);
+  return { ok: true };
+}
+
+/** Submit the clue for the current turn (turn-enforced); advances the turn. */
+export async function submitClue(code: string, text: string): Promise<ActionResult> {
+  const clue = text.trim().slice(0, 60);
   const room = await loadRoom(code);
   if (!room) return { error: "not_found" };
   const match = room.matches[0];
   if (!match || match.phase !== "DESCRIBING") return { error: "wrong_phase" };
   const me = await resolveCaller(room);
   if (!me.playerId) return { error: "not_a_player" };
-  const mp = match.matchPlayers.find(
-    (x: LoadedMatchPlayer) => x.playerId === me.playerId,
-  );
-  if (!mp || mp.status !== "ALIVE") return { error: "not_alive" };
+  if (match.currentTurnPlayerId !== me.playerId) return { error: "not_your_turn" };
+  if (!clue) return { error: "empty" };
 
-  try {
-    await prisma.clue.create({
-      data: {
-        matchId: match.id,
-        roundNumber: match.roundNumber,
-        playerId: me.playerId,
-        text: clue,
-      },
-    });
-  } catch (e) {
-    if (isUniqueViolation(e)) return { error: "already_submitted" };
-    throw e;
-  }
-
-  const aliveCount = match.matchPlayers.filter((x: LoadedMatchPlayer) => x.status === "ALIVE").length;
-  const clueCount = await prisma.clue.count({
-    where: { matchId: match.id, roundNumber: match.roundNumber },
-  });
-  if (clueCount >= aliveCount) {
-    await prisma.match.update({
-      where: { id: match.id },
-      data: { phase: "VOTING", deadlineAt: deadlineFor(room.turnTimerSeconds) },
-    });
-  }
+  await submitClueAndAdvance(room, match, me.playerId, clue);
   await broadcastRoom(room.id);
   return { ok: true };
 }
@@ -496,14 +580,8 @@ export async function mrWhiteGuess(code: string, guess: string): Promise<ActionR
     await persistMatchResult(match.id, "mrWhite");
   } else {
     // Wrong guess — resolve the round normally (Mr. White is already eliminated).
-    const outcome = evaluateOutcome(toGameState(room, match));
-    await advanceMatch(
-      match.id,
-      room.id,
-      match.roundNumber,
-      outcome,
-      room.turnTimerSeconds,
-    );
+    const state = toGameState(room, match);
+    await endOrNextRound(room, match, state, evaluateOutcome(state));
   }
   await broadcastRoom(room.id);
   return { ok: true };
@@ -517,14 +595,10 @@ export async function advanceIfExpired(code: string): Promise<ActionResult> {
   if (!match || !match.deadlineAt) return { ok: true };
   if (Date.now() < new Date(match.deadlineAt).getTime()) return { ok: true };
 
-  if (match.phase === "DESCRIBING") {
-    await prisma.match.update({
-      where: { id: match.id },
-      data: { phase: "VOTING", deadlineAt: deadlineFor(room.turnTimerSeconds) },
-    });
-    await broadcastRoom(room.id);
-  } else if (match.phase === "VOTING") {
-    await resolveVotingRound(room, match);
+  // Turn timed out: record a "no clue" placeholder for the current player and
+  // advance the turn. Only the describe phase is timed.
+  if (match.phase === "DESCRIBING" && match.currentTurnPlayerId) {
+    await submitClueAndAdvance(room, match, match.currentTurnPlayerId, "—");
     await broadcastRoom(room.id);
   }
   return { ok: true };

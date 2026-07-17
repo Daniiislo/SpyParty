@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import {
+  ArrowRight,
   Check,
   Copy,
   Crown,
@@ -23,6 +24,7 @@ import { DossierReveal } from "@/components/dossier-reveal";
 import { PhaseBanner } from "@/components/phase-banner";
 import { useRoomChannel } from "@/hooks/use-room-channel";
 import {
+  ackReady,
   advanceIfExpired,
   castVote,
   fetchMyCard,
@@ -30,6 +32,7 @@ import {
   leaveRoom,
   mrWhiteGuess,
   playAgain,
+  startDescribing,
   startMatch,
   submitClue,
 } from "@/lib/actions/rooms";
@@ -208,87 +211,137 @@ export function RoomClient({
           </div>
         )}
 
-        {/* ── Describe (reveal own word + submit clue) ── */}
-        {(state.phase === "dealing" || state.phase === "describing") && (
-          <div className="flex flex-1 flex-col gap-6">
-            <PhaseBanner
-              eyebrow={`${tc("round")} ${state.roundNumber}`}
-              title={t("describeTitle")}
-              description={t("describeDesc")}
-            />
-            {state.deadlineAt && (
-              <div className="flex justify-center">
-                <TurnTimer
-                  deadlineAt={state.deadlineAt}
-                  onExpire={() => act(() => advanceIfExpired(code))}
-                />
-              </div>
-            )}
-            {card && (
+        {/* ── Dealing: view your word, then ready-gate ── */}
+        {state.phase === "dealing" && (
+          <div className="flex flex-1 flex-col justify-center gap-6">
+            <PhaseBanner eyebrow={t("dealingTitle")} title="SPY PARTY" />
+            {card && !mePlayer?.ready && (
               <DossierReveal
                 mode="reveal"
                 role={card.role}
                 word={card.word}
                 topic={state.topicName ?? undefined}
+                onDone={() => act(() => ackReady(code))}
               />
             )}
-
             <ul className="flex flex-col gap-2">
-              {alivePlayers.map((p) => (
+              {state.players.map((p) => (
                 <li key={p.id}>
                   <DossierCard
-                    tone={state.currentTurnPlayerId === p.id ? "amber" : "neutral"}
+                    tone={p.id === meId ? "amber" : "neutral"}
                     className="flex items-center gap-3 p-3"
                   >
                     <span className="min-w-0 flex-1 truncate text-sm">
                       {p.name}
                       {p.id === meId ? ` (${tc("you")})` : ""}
                     </span>
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {p.clue ? p.clue : "…"}
-                    </span>
+                    {p.ready ? (
+                      <Check className="size-4 text-primary" />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">…</span>
+                    )}
                   </DossierCard>
                 </li>
               ))}
             </ul>
-
-            {mePlayer && mePlayer.alive !== false && !mePlayer.clue ? (
-              <div className="mt-auto flex gap-2">
-                <Input
-                  value={clueText}
-                  onChange={(e) => setClueText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !pending && clueText.trim()) {
-                      act(async () => {
-                        await submitClue(code, clueText);
-                        setClueText("");
-                      });
-                    }
-                  }}
-                  placeholder={t("cluePlaceholder")}
-                  maxLength={40}
-                  className="h-11"
-                />
+            {mePlayer?.ready &&
+              (isHost ? (
                 <Button
-                  onClick={() =>
-                    act(async () => {
-                      await submitClue(code, clueText);
-                      setClueText("");
-                    })
-                  }
-                  disabled={pending || !clueText.trim()}
-                  className="h-11 gap-2"
+                  onClick={() => act(() => startDescribing(code))}
+                  disabled={pending || !state.allReady}
+                  className="mt-2 h-12 w-full gap-2 text-sm font-semibold"
                 >
-                  <Send className="size-4" /> {t("submitClue")}
+                  <ArrowRight className="size-4" /> {t("startDescribing")}
                 </Button>
-              </div>
-            ) : (
-              <p className="text-classified mt-auto text-center text-[11px] text-muted-foreground">
-                {t("waitingClues")}
-              </p>
-            )}
+              ) : (
+                <p className="text-classified mt-2 text-center text-[11px] text-muted-foreground">
+                  {t("waitingReady")}
+                </p>
+              ))}
           </div>
         )}
+
+        {/* ── Describe: one clue per turn, in seat order, across N rounds ── */}
+        {state.phase === "describing" &&
+          (() => {
+            const myTurn = state.currentTurnPlayerId === meId;
+            const turnName =
+              state.players.find((p) => p.id === state.currentTurnPlayerId)?.name ?? "";
+            return (
+              <div className="flex flex-1 flex-col justify-center gap-5">
+                <PhaseBanner
+                  eyebrow={`${tc("round")} ${state.roundNumber} · ${state.describeRound}/${state.describeRounds}`}
+                  title={myTurn ? t("yourTurnDescribe") : t("waitingTurn", { name: turnName })}
+                />
+                {state.deadlineAt && (
+                  <div className="flex justify-center">
+                    <TurnTimer
+                      deadlineAt={state.deadlineAt}
+                      onExpire={() => act(() => advanceIfExpired(code))}
+                    />
+                  </div>
+                )}
+                <ul className="flex flex-col gap-2">
+                  {alivePlayers.map((p) => (
+                    <li key={p.id}>
+                      <DossierCard
+                        tone={state.currentTurnPlayerId === p.id ? "amber" : "neutral"}
+                        active={state.currentTurnPlayerId === p.id}
+                        className="flex items-center gap-3 p-3"
+                      >
+                        <span className="shrink-0 truncate text-sm font-medium">
+                          {p.name}
+                          {p.id === meId ? ` (${tc("you")})` : ""}
+                        </span>
+                        <span className="flex flex-1 flex-wrap justify-end gap-1">
+                          {p.clues.map((c, i) => (
+                            <span
+                              key={i}
+                              className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs"
+                            >
+                              {c}
+                            </span>
+                          ))}
+                        </span>
+                      </DossierCard>
+                    </li>
+                  ))}
+                </ul>
+                {myTurn && (
+                  <div className="mt-auto flex gap-2">
+                    <Input
+                      value={clueText}
+                      onChange={(e) => setClueText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !pending && clueText.trim()) {
+                          act(async () => {
+                            await submitClue(code, clueText);
+                            setClueText("");
+                          });
+                        }
+                      }}
+                      placeholder={t("cluePlaceholder")}
+                      maxLength={60}
+                      autoFocus
+                      className="h-11"
+                    />
+                    <Button
+                      onClick={() =>
+                        act(async () => {
+                          await submitClue(code, clueText);
+                          setClueText("");
+                        })
+                      }
+                      disabled={pending || !clueText.trim()}
+                      className="h-11 gap-2"
+                    >
+                      <Send className="size-4" /> {t("submitClue")}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
         {/* ── Vote ── */}
         {state.phase === "voting" && (

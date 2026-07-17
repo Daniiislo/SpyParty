@@ -229,7 +229,15 @@
     "mrWhiteWaiting": "Mr. White đang đoán…",
     "mrWhiteWins": "Mr. White thắng",
     "timerLabel": "Hẹn giờ lượt",
-    "timerOff": "Tắt"
+    "timerOff": "Tắt",
+    "roundsLabel": "Số vòng mô tả",
+    "ready": "Tôi đã xem từ",
+    "waitingReady": "Đang chờ mọi người xem từ…",
+    "startDescribing": "Bắt đầu mô tả",
+    "yourTurnDescribe": "Lượt của bạn — nêu một gợi ý",
+    "waitingTurn": "{name} đang mô tả…",
+    "cluesHeading": "Gợi ý",
+    "openVote": "Mở bỏ phiếu"
   },
   "leaderboard": {
     "eyebrow": "Đặc vụ hàng đầu",

@@ -23,8 +23,10 @@ export interface PublicPlayer {
   isHost: boolean;
   /** Alive/eliminated once a match is running; `null` in the lobby. */
   alive: boolean | null;
-  /** This round's clue, shown to everyone once submitted (clues aren't secret). */
-  clue: string | null;
+  /** All clues this player has given, in order across every describe round. */
+  clues: string[];
+  /** Has viewed their word (gates the start of describing). */
+  ready: boolean;
   hasVoted: boolean;
   /** Revealed only at match end — never leak roles mid-game. */
   revealedRole: Role | null;
@@ -33,14 +35,19 @@ export interface PublicPlayer {
 export interface RoomState {
   roomId: string;
   code: string;
+  mode: "online" | "offline";
   status: "LOBBY" | "IN_PROGRESS" | "COMPLETED";
   phase: PublicPhase;
   roundNumber: number;
+  describeRound: number;
+  describeRounds: number;
   hostUserId: string;
   spyCount: number;
   topicName: string | null;
   players: PublicPlayer[];
-  /** Whose turn to describe (first alive player without a clue this round). */
+  /** True once every alive player has seen their word (DEALING gate). */
+  allReady: boolean;
+  /** Whose turn to describe. */
   currentTurnPlayerId: string | null;
   /** Vote tally by targetId — present from the voting phase onward. */
   tally: Record<string, number> | null;
@@ -153,35 +160,49 @@ export async function getRoomState(code: string): Promise<RoomState | null> {
                 : "matchEnd";
 
   const atEnd = phase === "matchEnd";
-  const cluesThisRound = new Map(
-    (match?.clues ?? [])
-      .filter((c) => c.roundNumber === round)
-      .map((c) => [c.playerId, c.text]),
+
+  // Full clue history per player, ordered across every round / describe round.
+  const cluesByPlayer = new Map<string, string[]>();
+  const orderedClues = [...(match?.clues ?? [])].sort(
+    (a, b) =>
+      a.roundNumber - b.roundNumber ||
+      a.describeRound - b.describeRound ||
+      a.createdAt.getTime() - b.createdAt.getTime(),
   );
+  for (const c of orderedClues) {
+    const list = cluesByPlayer.get(c.playerId) ?? [];
+    list.push(c.text);
+    cluesByPlayer.set(c.playerId, list);
+  }
+
   const votesThisRound = (match?.votes ?? []).filter((v) => v.roundNumber === round);
   const votedPlayerIds = new Set(votesThisRound.map((v) => v.voterPlayerId));
   const mpByPlayer = new Map((match?.matchPlayers ?? []).map((mp) => [mp.playerId, mp]));
 
+  let aliveReady = 0;
+  let aliveTotal = 0;
   const players: PublicPlayer[] = room.players.map((p) => {
     const mp = mpByPlayer.get(p.id);
+    const alive = mp ? mp.status === "ALIVE" : null;
+    if (mp && mp.status === "ALIVE") {
+      aliveTotal++;
+      if (mp.ready) aliveReady++;
+    }
     return {
       id: p.id,
       name: p.displayName,
       seatOrder: p.seatOrder,
       isHost: p.isHost,
-      alive: mp ? mp.status === "ALIVE" : null,
-      clue: cluesThisRound.get(p.id) ?? null,
+      alive,
+      clues: cluesByPlayer.get(p.id) ?? [],
+      ready: mp?.ready ?? false,
       hasVoted: votedPlayerIds.has(p.id),
       revealedRole: atEnd && mp ? mapRole(mp.role) : null,
     };
   });
 
-  // Whose turn to describe: first alive player (seat order) without a clue.
-  let currentTurnPlayerId: string | null = null;
-  if (phase === "describing") {
-    const next = players.find((p) => p.alive && !cluesThisRound.has(p.id));
-    currentTurnPlayerId = next?.id ?? null;
-  }
+  const currentTurnPlayerId =
+    phase === "describing" ? (match?.currentTurnPlayerId ?? null) : null;
 
   let tally: Record<string, number> | null = null;
   if (phase === "voting" || phase === "elimination" || atEnd) {
@@ -198,9 +219,12 @@ export async function getRoomState(code: string): Promise<RoomState | null> {
   return {
     roomId: room.id,
     code: room.code,
+    mode: room.mode === "OFFLINE" ? "offline" : "online",
     status: room.status,
     phase,
     roundNumber: round,
+    describeRound: match?.describeRound ?? 1,
+    describeRounds: room.describeRounds,
     hostUserId: room.hostUserId,
     spyCount: room.spyCount,
     topicName: (() => {
@@ -209,6 +233,7 @@ export async function getRoomState(code: string): Promise<RoomState | null> {
       return t ? bankTopicName(t, room.gameLocale === "en" ? "en" : "vi") : null;
     })(),
     players,
+    allReady: aliveTotal > 0 && aliveReady === aliveTotal,
     currentTurnPlayerId,
     tally,
     eliminatedPlayerId:

@@ -229,7 +229,15 @@
     "mrWhiteWaiting": "Mr. White is guessing…",
     "mrWhiteWins": "Mr. White wins",
     "timerLabel": "Turn timer",
-    "timerOff": "Off"
+    "timerOff": "Off",
+    "roundsLabel": "Describe rounds",
+    "ready": "I've seen my word",
+    "waitingReady": "Waiting for everyone to see their word…",
+    "startDescribing": "Start describing",
+    "yourTurnDescribe": "Your turn — give one clue",
+    "waitingTurn": "{name} is describing…",
+    "cluesHeading": "Clues",
+    "openVote": "Open vote"
   },
   "leaderboard": {
     "eyebrow": "Top agents",
