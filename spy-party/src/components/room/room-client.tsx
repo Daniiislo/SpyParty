@@ -27,6 +27,7 @@ import {
   fetchMyCard,
   fetchRoomState,
   leaveRoom,
+  mrWhiteGuess,
   playAgain,
   startMatch,
   submitClue,
@@ -55,6 +56,7 @@ export function RoomClient({
   const [card, setCard] = useState<MyCard | null>(initialCard);
   const [clueText, setClueText] = useState("");
   const [selectedVote, setSelectedVote] = useState<string | null>(null);
+  const [guess, setGuess] = useState("");
   const [copied, setCopied] = useState(false);
   const [pending, startTransition] = useTransition();
 
@@ -323,6 +325,39 @@ export function RoomClient({
           </div>
         )}
 
+        {/* ── Mr. White steal ── */}
+        {state.phase === "mrWhiteGuess" && (
+          <div className="flex flex-1 flex-col justify-center gap-6 text-center">
+            <PhaseBanner
+              eyebrow={`${tc("round")} ${state.roundNumber}`}
+              title={t("mrWhiteGuessTitle")}
+              description={t("mrWhiteGuessPrompt")}
+            />
+            {meId === state.pendingMrWhiteId ? (
+              <div className="flex gap-2">
+                <Input
+                  value={guess}
+                  onChange={(e) => setGuess(e.target.value)}
+                  placeholder={t("guessPlaceholder")}
+                  maxLength={40}
+                  className="h-12"
+                />
+                <Button
+                  onClick={() => act(() => mrWhiteGuess(code, guess))}
+                  disabled={pending || !guess.trim()}
+                  className="h-12 gap-2"
+                >
+                  <Send className="size-4" /> {t("submitGuess")}
+                </Button>
+              </div>
+            ) : (
+              <p className="text-classified text-[11px] text-muted-foreground">
+                {t("mrWhiteWaiting")}
+              </p>
+            )}
+          </div>
+        )}
+
         {/* ── Result ── */}
         {(state.phase === "elimination" || state.phase === "matchEnd") && (
           <div className="flex flex-1 flex-col justify-center gap-6 text-center">
@@ -331,7 +366,9 @@ export function RoomClient({
                 "rounded-2xl border bg-card p-8",
                 state.winner === "civilians"
                   ? "animate-glow-pulse border-primary/40"
-                  : "animate-alert-pulse border-destructive/50",
+                  : state.winner === "mrWhite"
+                    ? "border-foreground/40"
+                    : "animate-alert-pulse border-destructive/50",
               )}
             >
               <span className="text-classified text-[11px] text-muted-foreground">
@@ -340,10 +377,18 @@ export function RoomClient({
               <h1
                 className={cn(
                   "mt-2 text-3xl font-bold",
-                  state.winner === "civilians" ? "text-primary" : "text-destructive",
+                  state.winner === "civilians"
+                    ? "text-primary"
+                    : state.winner === "mrWhite"
+                      ? "text-foreground"
+                      : "text-destructive",
                 )}
               >
-                {state.winner === "civilians" ? t("civiliansWin") : t("spiesWin")}
+                {state.winner === "civilians"
+                  ? t("civiliansWin")
+                  : state.winner === "mrWhite"
+                    ? t("mrWhiteWins")
+                    : t("spiesWin")}
               </h1>
               {state.eliminatedPlayerId && (
                 <p className="mt-2 text-sm text-muted-foreground">

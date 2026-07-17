@@ -13,6 +13,7 @@ export type PublicPhase =
   | "describing"
   | "voting"
   | "elimination"
+  | "mrWhiteGuess"
   | "matchEnd";
 
 export interface PublicPlayer {
@@ -44,6 +45,8 @@ export interface RoomState {
   /** Vote tally by targetId — present from the voting phase onward. */
   tally: Record<string, number> | null;
   eliminatedPlayerId: string | null;
+  /** In the mrWhiteGuess phase, the eliminated Mr. White who may steal the win. */
+  pendingMrWhiteId: string | null;
   winner: "civilians" | "spies" | "mrWhite" | "none" | null;
   /** Revealed only at match end. */
   civilianWord: string | null;
@@ -141,7 +144,9 @@ export async function getRoomState(code: string): Promise<RoomState | null> {
             ? "voting"
             : match.phase === "ELIMINATION"
               ? "elimination"
-              : "matchEnd";
+              : match.phase === "MR_WHITE_GUESS"
+                ? "mrWhiteGuess"
+                : "matchEnd";
 
   const atEnd = phase === "matchEnd";
   const cluesThisRound = new Map(
@@ -203,7 +208,11 @@ export async function getRoomState(code: string): Promise<RoomState | null> {
     currentTurnPlayerId,
     tally,
     eliminatedPlayerId:
-      phase === "elimination" || atEnd ? (eliminatedMp?.playerId ?? null) : null,
+      phase === "elimination" || phase === "mrWhiteGuess" || atEnd
+        ? (eliminatedMp?.playerId ?? null)
+        : null,
+    pendingMrWhiteId:
+      phase === "mrWhiteGuess" ? (match?.pendingMrWhitePlayerId ?? null) : null,
     winner: atEnd ? mapWinner(match?.winnerSide ?? null) : null,
     civilianWord: atEnd ? (match?.civilianWord ?? null) : null,
     spyWord: atEnd ? (match?.spyWord ?? null) : null,

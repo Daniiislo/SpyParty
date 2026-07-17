@@ -21,6 +21,7 @@ import {
 import { getOfflinePair } from "@/lib/data/word-bank";
 import {
   applyElimination,
+  checkMrWhiteGuess,
   deal,
   evaluateOutcome,
   MIN_PLAYERS,
@@ -28,6 +29,7 @@ import {
   resolveVote,
   tallyVotes,
   type GameState,
+  type Outcome,
   type PlayerState,
   type Role,
   type Side,
@@ -98,12 +100,45 @@ function toGameState(room: LoadedRoom, match: LoadedMatch): GameState {
   };
 }
 
+/** End the match or advance to the next round based on the evaluated outcome. */
+async function advanceMatch(
+  matchId: string,
+  roomId: string,
+  roundNumber: number,
+  outcome: Outcome,
+) {
+  if (outcome.matchOver) {
+    await prisma.$transaction([
+      prisma.match.update({
+        where: { id: matchId },
+        data: {
+          phase: "MATCH_END",
+          winnerSide: toWinnerSide(outcome.winner),
+          endedAt: new Date(),
+          pendingMrWhitePlayerId: null,
+        },
+      }),
+      prisma.room.update({ where: { id: roomId }, data: { status: "COMPLETED" } }),
+    ]);
+  } else {
+    await prisma.match.update({
+      where: { id: matchId },
+      data: {
+        phase: "DESCRIBING",
+        roundNumber: roundNumber + 1,
+        pendingMrWhitePlayerId: null,
+      },
+    });
+  }
+}
+
 /** Host creates a room. Requires a signed-in Clerk user. */
 export async function createRoom(input: {
   spyCount: number;
   topicSlug: string;
   locale: string;
   hostName?: string;
+  mrWhiteCount?: number;
 }): Promise<ActionResult> {
   const { userId } = await auth();
   if (!userId) return { error: "unauthorized" };
@@ -115,6 +150,7 @@ export async function createRoom(input: {
     "Host"
   ).slice(0, 24);
   const spyCount = Math.max(1, Math.min(3, Math.floor(input.spyCount || 1)));
+  const mrWhiteCount = input.mrWhiteCount === 1 ? 1 : 0;
   const locale = input.locale === "en" ? "en" : "vi";
 
   for (let attempt = 0; attempt < 6; attempt++) {
@@ -125,6 +161,7 @@ export async function createRoom(input: {
           code,
           hostUserId: userId,
           spyCount,
+          mrWhiteCount,
           gameLocale: locale,
           topicSlug: input.topicSlug || null,
           players: {
@@ -190,8 +227,14 @@ export async function startMatch(code: string): Promise<ActionResult> {
   if (room.status !== "LOBBY") return { error: "already_started" };
   if (room.players.length < MIN_PLAYERS) return { error: "need_players" };
 
-  const spyCap = Math.max(1, Math.floor((room.players.length - 1) / 2));
-  const spyCount = Math.min(room.spyCount, spyCap);
+  const n = room.players.length;
+  const spyCount = Math.min(Math.max(1, room.spyCount), Math.floor((n - 1) / 2));
+  let mrWhiteCount = room.mrWhiteCount ?? 0;
+  // Impostors must stay a strict minority; drop Mr. White (then extra spies) if
+  // there aren't enough players.
+  while (mrWhiteCount > 0 && spyCount + mrWhiteCount >= n - (spyCount + mrWhiteCount)) {
+    mrWhiteCount--;
+  }
   const seed = randomSeed();
   const locale = room.gameLocale === "en" ? "en" : "vi";
   const wordPair = await getOfflinePair(room.topicSlug ?? "drinks", locale, seed);
@@ -200,7 +243,7 @@ export async function startMatch(code: string): Promise<ActionResult> {
       id: p.id,
       name: p.displayName,
     })),
-    config: { spyCount, mrWhiteCount: 0, maxRounds: 1 },
+    config: { spyCount, mrWhiteCount, maxRounds: n },
     wordPair,
     seed,
   });
@@ -315,33 +358,61 @@ export async function castVote(
     const voteMap: Record<string, string | null> = {};
     for (const v of votes) voteMap[v.voterPlayerId] = v.targetPlayerId ?? null;
     const { eliminatedId } = resolveVote(tallyVotes(voteMap, state));
-    const outcome = evaluateOutcome(applyElimination(state, eliminatedId));
 
-    const ops = [];
     if (eliminatedId) {
-      ops.push(
-        prisma.matchPlayer.update({
-          where: {
-            matchId_playerId: { matchId: match.id, playerId: eliminatedId },
-          },
-          data: { status: "ELIMINATED", eliminatedRound: match.roundNumber },
-        }),
-      );
+      await prisma.matchPlayer.update({
+        where: { matchId_playerId: { matchId: match.id, playerId: eliminatedId } },
+        data: { status: "ELIMINATED", eliminatedRound: match.roundNumber },
+      });
     }
-    ops.push(
+
+    const elimMp = eliminatedId
+      ? match.matchPlayers.find((x: LoadedMatchPlayer) => x.playerId === eliminatedId)
+      : null;
+
+    if (elimMp && elimMp.role === "MR_WHITE") {
+      // Mr. White may steal the win by guessing the civilian word.
+      await prisma.match.update({
+        where: { id: match.id },
+        data: { phase: "MR_WHITE_GUESS", pendingMrWhitePlayerId: eliminatedId },
+      });
+    } else {
+      const outcome = evaluateOutcome(applyElimination(state, eliminatedId));
+      await advanceMatch(match.id, room.id, match.roundNumber, outcome);
+    }
+  }
+  await broadcastRoom(room.id);
+  return { ok: true };
+}
+
+/** The eliminated Mr. White guesses the civilian word to steal the win. */
+export async function mrWhiteGuess(code: string, guess: string): Promise<ActionResult> {
+  const room = await loadRoom(code);
+  if (!room) return { error: "not_found" };
+  const match = room.matches[0];
+  if (!match || match.phase !== "MR_WHITE_GUESS") return { error: "wrong_phase" };
+  const me = await resolveCaller(room);
+  if (!me.playerId || me.playerId !== match.pendingMrWhitePlayerId) {
+    return { error: "forbidden" };
+  }
+
+  if (checkMrWhiteGuess(guess, match.civilianWord ?? "")) {
+    await prisma.$transaction([
       prisma.match.update({
         where: { id: match.id },
         data: {
           phase: "MATCH_END",
-          winnerSide: toWinnerSide(outcome.winner),
+          winnerSide: "MR_WHITE",
           endedAt: new Date(),
+          pendingMrWhitePlayerId: null,
         },
       }),
-    );
-    ops.push(
       prisma.room.update({ where: { id: room.id }, data: { status: "COMPLETED" } }),
-    );
-    await prisma.$transaction(ops);
+    ]);
+  } else {
+    // Wrong guess — resolve the round normally (Mr. White is already eliminated).
+    const outcome = evaluateOutcome(toGameState(room, match));
+    await advanceMatch(match.id, room.id, match.roundNumber, outcome);
   }
   await broadcastRoom(room.id);
   return { ok: true };

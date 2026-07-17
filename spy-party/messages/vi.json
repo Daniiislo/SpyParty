@@ -155,7 +155,15 @@
     "spiesWin": "Gián điệp thắng",
     "theCivilianWord": "Từ người thường",
     "theSpyWord": "Từ gián điệp",
-    "spiesWere": "Gián điệp: {names}"
+    "spiesWere": "Gián điệp: {names}",
+    "mrWhiteLabel": "Mr. White",
+    "mrWhiteHint": "Thêm một người không có từ, phải hoà vào đám đông.",
+    "mrWhiteGuessTitle": "Cơ hội cuối của Mr. White",
+    "mrWhiteGuessPrompt": "Đoán từ của người thường để cướp chiến thắng.",
+    "guessPlaceholder": "Từ bạn đoán",
+    "submitGuess": "Đoán",
+    "mrWhiteWins": "Mr. White thắng",
+    "nextRound": "Vòng tiếp"
   },
   "online": {
     "createTitle": "Mở phòng",
@@ -211,6 +219,13 @@
     "errAlreadyStarted": "Ván đấu đã bắt đầu.",
     "errRoomFull": "Phòng đã đầy.",
     "errNameTaken": "Mật danh đã có người dùng.",
-    "errGeneric": "Có lỗi xảy ra. Thử lại nhé."
+    "errGeneric": "Có lỗi xảy ra. Thử lại nhé.",
+    "mrWhiteLabel": "Mr. White",
+    "mrWhiteGuessTitle": "Cơ hội cuối của Mr. White",
+    "mrWhiteGuessPrompt": "Đoán từ của người thường để cướp chiến thắng.",
+    "guessPlaceholder": "Từ bạn đoán",
+    "submitGuess": "Đoán",
+    "mrWhiteWaiting": "Mr. White đang đoán…",
+    "mrWhiteWins": "Mr. White thắng"
   }
 }

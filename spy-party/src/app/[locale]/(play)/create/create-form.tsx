@@ -28,6 +28,7 @@ export function CreateRoomForm({
 
   const [hostName, setHostName] = useState("");
   const [spyCount, setSpyCount] = useState(1);
+  const [mrWhite, setMrWhite] = useState(false);
   const [topicSlug, setTopicSlug] = useState(topics[0]?.slug ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -35,7 +36,13 @@ export function CreateRoomForm({
   function submit() {
     startTransition(async () => {
       setError(null);
-      const res = await createRoom({ spyCount, topicSlug, locale, hostName });
+      const res = await createRoom({
+        spyCount,
+        topicSlug,
+        locale,
+        hostName,
+        mrWhiteCount: mrWhite ? 1 : 0,
+      });
       if ("ok" in res && res.code) router.push(`/room/${res.code}`);
       else setError(t("errGeneric"));
     });
@@ -76,6 +83,30 @@ export function CreateRoomForm({
             decrementLabel={`${tc("back")} ${tc("spies")}`}
             incrementLabel={`${tc("next")} ${tc("spies")}`}
           />
+        </section>
+
+        <section className="mt-8 flex items-center justify-between gap-4">
+          <Label className="text-classified text-[11px] text-muted-foreground">
+            {t("mrWhiteLabel")}
+          </Label>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={mrWhite}
+            aria-label={t("mrWhiteLabel")}
+            onClick={() => setMrWhite((v) => !v)}
+            className={cn(
+              "relative h-7 w-12 shrink-0 rounded-full border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              mrWhite ? "border-primary bg-primary/30" : "border-border bg-muted",
+            )}
+          >
+            <span
+              className={cn(
+                "absolute top-0.5 size-5 rounded-full bg-foreground transition-transform",
+                mrWhite ? "translate-x-5" : "translate-x-0.5",
+              )}
+            />
+          </button>
         </section>
 
         <section className="mt-8">

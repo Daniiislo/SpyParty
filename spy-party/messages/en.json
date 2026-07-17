@@ -155,7 +155,15 @@
     "spiesWin": "Spies win",
     "theCivilianWord": "Civilian word",
     "theSpyWord": "Spy word",
-    "spiesWere": "Spy: {names}"
+    "spiesWere": "Spy: {names}",
+    "mrWhiteLabel": "Mr. White",
+    "mrWhiteHint": "Adds a player with no word who must blend in.",
+    "mrWhiteGuessTitle": "Mr. White's last chance",
+    "mrWhiteGuessPrompt": "Guess the civilian word to steal the win.",
+    "guessPlaceholder": "Your guess",
+    "submitGuess": "Guess",
+    "mrWhiteWins": "Mr. White wins",
+    "nextRound": "Next round"
   },
   "online": {
     "createTitle": "Open a channel",
@@ -211,6 +219,13 @@
     "errAlreadyStarted": "This match already started.",
     "errRoomFull": "The room is full.",
     "errNameTaken": "That codename is taken.",
-    "errGeneric": "Something went wrong. Try again."
+    "errGeneric": "Something went wrong. Try again.",
+    "mrWhiteLabel": "Mr. White",
+    "mrWhiteGuessTitle": "Mr. White's last chance",
+    "mrWhiteGuessPrompt": "Guess the civilian word to steal the win.",
+    "guessPlaceholder": "Your guess",
+    "submitGuess": "Guess",
+    "mrWhiteWaiting": "Mr. White is guessing…",
+    "mrWhiteWins": "Mr. White wins"
   }
 }
