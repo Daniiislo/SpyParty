@@ -31,6 +31,7 @@ export function CreateRoomForm({
   const [spyCount, setSpyCount] = useState(1);
   const [mrWhite, setMrWhite] = useState(false);
   const [turnTimer, setTurnTimer] = useState<number | null>(null);
+  const [describeRounds, setDescribeRounds] = useState(2);
   const [topicSlug, setTopicSlug] = useState(topics[0]?.slug ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -45,6 +46,7 @@ export function CreateRoomForm({
         hostName,
         mrWhiteCount: mrWhite ? 1 : 0,
         turnTimerSeconds: turnTimer,
+        describeRounds,
       });
       if ("ok" in res && res.code) router.push(`/room/${res.code}`);
       else setError(t("errGeneric"));
@@ -104,7 +106,7 @@ export function CreateRoomForm({
             {t("timerLabel")}
           </Label>
           <div className="flex gap-1.5">
-            {([null, 30, 60] as const).map((opt) => {
+            {([null, 10, 15, 20] as const).map((opt) => {
               const active = turnTimer === opt;
               return (
                 <button
@@ -113,13 +115,40 @@ export function CreateRoomForm({
                   aria-pressed={active}
                   onClick={() => setTurnTimer(opt)}
                   className={cn(
-                    "h-9 rounded-lg border px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    "h-9 rounded-lg border px-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     active
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border hover:bg-muted",
                   )}
                 >
                   {opt === null ? t("timerOff") : `${opt}s`}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="mt-8 flex items-center justify-between gap-4">
+          <Label className="text-classified text-[11px] text-muted-foreground">
+            {t("roundsLabel")}
+          </Label>
+          <div className="flex gap-1.5">
+            {([1, 2, 3] as const).map((opt) => {
+              const active = describeRounds === opt;
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setDescribeRounds(opt)}
+                  className={cn(
+                    "size-9 rounded-lg border text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    active
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:bg-muted",
+                  )}
+                >
+                  {opt}
                 </button>
               );
             })}
