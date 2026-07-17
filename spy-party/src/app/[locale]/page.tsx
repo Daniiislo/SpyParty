@@ -30,12 +30,13 @@ export default async function Home({ params }: PageProps<"/[locale]">) {
   setRequestLocale(locale);
 
   const hero = await getTranslations("hero");
-  const landing = await getTranslations("landing");
   const roles = await getTranslations("roles");
   const steps = await getTranslations("steps");
   const cta = await getTranslations("cta");
   const footer = await getTranslations("footer");
   const lb = await getTranslations("leaderboard");
+  // `landing` (playOffline/onlineSoon) is no longer used on the page; kept in the
+  // catalogs for now. Offline is chosen on /create.
 
   return (
     <main className="flex flex-1 flex-col">
@@ -191,8 +192,8 @@ export default async function Home({ params }: PageProps<"/[locale]">) {
               asChild
               className="mt-7 h-11 gap-2 px-6 text-sm font-semibold"
             >
-              <Link href="/offline">
-                <LockOpen className="size-4" /> {landing("playOffline")}
+              <Link href="/create">
+                <LockOpen className="size-4" /> {cta("button")}
               </Link>
             </Button>
           </div>

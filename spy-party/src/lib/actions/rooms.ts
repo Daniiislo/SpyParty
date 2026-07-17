@@ -307,6 +307,7 @@ export async function createRoom(input: {
   mrWhiteCount?: number;
   turnTimerSeconds?: number | null;
   describeRounds?: number;
+  mode?: "online" | "offline";
 }): Promise<ActionResult> {
   const { userId } = await auth();
   if (!userId) return { error: "unauthorized" };
@@ -324,6 +325,7 @@ export async function createRoom(input: {
       ? Math.min(300, Math.floor(input.turnTimerSeconds))
       : null;
   const describeRounds = Math.max(1, Math.min(5, Math.floor(input.describeRounds || 2)));
+  const mode = input.mode === "offline" ? "OFFLINE" : "ONLINE";
   const locale = input.locale === "en" ? "en" : "vi";
 
   for (let attempt = 0; attempt < 6; attempt++) {
@@ -333,6 +335,7 @@ export async function createRoom(input: {
         data: {
           code,
           hostUserId: userId,
+          mode,
           spyCount,
           mrWhiteCount,
           turnTimerSeconds,
@@ -486,6 +489,31 @@ export async function startDescribing(code: string): Promise<ActionResult> {
       deadlineAt: deadlineFor(room.turnTimerSeconds),
     },
   });
+  await broadcastRoom(room.id);
+  return { ok: true };
+}
+
+/** Offline host reveals all roles + words, ending the deal-only match. */
+export async function revealRoles(code: string): Promise<ActionResult> {
+  const { userId } = await auth();
+  const room = await loadRoom(code);
+  if (!room) return { error: "not_found" };
+  if (!userId || room.hostUserId !== userId) return { error: "forbidden" };
+  const match = room.matches[0];
+  if (!match) return { error: "wrong_phase" };
+  await prisma.$transaction([
+    prisma.match.update({
+      where: { id: match.id },
+      data: {
+        phase: "MATCH_END",
+        winnerSide: "NONE",
+        endedAt: new Date(),
+        deadlineAt: null,
+        currentTurnPlayerId: null,
+      },
+    }),
+    prisma.room.update({ where: { id: room.id }, data: { status: "COMPLETED" } }),
+  ]);
   await broadcastRoom(room.id);
   return { ok: true };
 }

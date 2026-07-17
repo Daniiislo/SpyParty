@@ -237,7 +237,15 @@
     "yourTurnDescribe": "Lượt của bạn — nêu một gợi ý",
     "waitingTurn": "{name} đang mô tả…",
     "cluesHeading": "Gợi ý",
-    "openVote": "Mở bỏ phiếu"
+    "openVote": "Mở bỏ phiếu",
+    "modeLabel": "Chế độ",
+    "modeOnline": "Online",
+    "modeOnlineDesc": "Mô tả & bỏ phiếu trong app.",
+    "modeOffline": "Offline (chỉ phát đề)",
+    "modeOfflineDesc": "App chia từ; chơi trực tiếp ngoài đời.",
+    "revealRoles": "Lộ diện vai trò",
+    "offlinePlaying": "Mọi người đã có từ. Chơi trực tiếp — chủ phòng bấm lộ diện khi xong.",
+    "rolesRevealed": "Đã lộ diện"
   },
   "leaderboard": {
     "eyebrow": "Đặc vụ hàng đầu",
