@@ -29,6 +29,7 @@ import {
   resolveVote,
   scoreMatch,
   tallyVotes,
+  VOTE_TIMER_SECONDS,
   type GameState,
   type Outcome,
   type PlayerState,
@@ -258,7 +259,12 @@ async function submitClueAndAdvance(
   } else {
     await prisma.match.update({
       where: { id: match.id },
-      data: { phase: "VOTING", currentTurnPlayerId: null, deadlineAt: null },
+      data: {
+        phase: "VOTING",
+        currentTurnPlayerId: null,
+        // Voting always gets a fixed window, independent of the describe timer.
+        deadlineAt: deadlineFor(VOTE_TIMER_SECONDS),
+      },
     });
   }
 }
@@ -305,6 +311,7 @@ export async function createRoom(input: {
   locale: string;
   hostName?: string;
   mrWhiteCount?: number;
+  blindMode?: boolean;
   turnTimerSeconds?: number | null;
   describeRounds?: number;
   mode?: "online" | "offline";
@@ -319,7 +326,10 @@ export async function createRoom(input: {
     "Host"
   ).slice(0, 24);
   const spyCount = Math.max(1, Math.min(3, Math.floor(input.spyCount || 1)));
-  const mrWhiteCount = input.mrWhiteCount === 1 ? 1 : 0;
+  const blindMode = input.blindMode === true;
+  // Mr. White is incompatible with blind mode (having no word would give it
+  // away), so blind mode always wins and disables it.
+  const mrWhiteCount = !blindMode && input.mrWhiteCount === 1 ? 1 : 0;
   const turnTimerSeconds =
     input.turnTimerSeconds && input.turnTimerSeconds > 0
       ? Math.min(300, Math.floor(input.turnTimerSeconds))
@@ -338,6 +348,7 @@ export async function createRoom(input: {
           mode,
           spyCount,
           mrWhiteCount,
+          blindMode,
           turnTimerSeconds,
           describeRounds,
           gameLocale: locale,
@@ -632,6 +643,22 @@ export async function advanceIfExpired(code: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+/**
+ * Client watchdog for the voting phase: once the fixed vote window has elapsed,
+ * resolve the round with whatever ballots are in (missing voters = abstain).
+ * Idempotent — the phase check makes concurrent calls harmless.
+ */
+export async function resolveVotingIfExpired(code: string): Promise<ActionResult> {
+  const room = await loadRoom(code);
+  if (!room) return { error: "not_found" };
+  const match = room.matches[0];
+  if (!match || match.phase !== "VOTING" || !match.deadlineAt) return { ok: true };
+  if (Date.now() < new Date(match.deadlineAt).getTime()) return { ok: true };
+  await resolveVotingRound(room, match);
+  await broadcastRoom(room.id);
+  return { ok: true };
+}
+
 /** Host edits room settings while in the lobby. */
 export async function updateSettings(
   code: string,
@@ -639,6 +666,7 @@ export async function updateSettings(
     topicSlug?: string;
     spyCount?: number;
     mrWhiteCount?: number;
+    blindMode?: boolean;
     turnTimerSeconds?: number | null;
     describeRounds?: number;
     maxPlayers?: number;
@@ -650,12 +678,19 @@ export async function updateSettings(
   if (!userId || room.hostUserId !== userId) return { error: "forbidden" };
   if (room.status !== "LOBBY") return { error: "already_started" };
 
+  const blindMode = input.blindMode ?? room.blindMode;
+  // Blind mode and Mr. White are mutually exclusive; blind mode wins.
+  const requestedMrWhite =
+    input.mrWhiteCount === 1 ? 1 : input.mrWhiteCount === 0 ? 0 : room.mrWhiteCount;
+  const mrWhiteCount = blindMode ? 0 : requestedMrWhite;
+
   await prisma.room.update({
     where: { id: room.id },
     data: {
       topicSlug: input.topicSlug ?? room.topicSlug,
       spyCount: Math.max(1, Math.min(3, Math.floor(input.spyCount ?? room.spyCount))),
-      mrWhiteCount: input.mrWhiteCount === 1 ? 1 : input.mrWhiteCount === 0 ? 0 : room.mrWhiteCount,
+      mrWhiteCount,
+      blindMode,
       turnTimerSeconds:
         input.turnTimerSeconds === undefined
           ? room.turnTimerSeconds

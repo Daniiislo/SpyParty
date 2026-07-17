@@ -46,6 +46,7 @@ import {
   leaveRoom,
   mrWhiteGuess,
   playAgain,
+  resolveVotingIfExpired,
   revealRoles,
   startDescribing,
   startMatch,
@@ -53,7 +54,7 @@ import {
 } from "@/lib/actions/rooms";
 import { TurnTimer } from "@/components/turn-timer";
 import type { MyCard, RoomState } from "@/lib/data/rooms";
-import { MIN_PLAYERS, type Role } from "@/lib/game";
+import { MIN_PLAYERS, VOTE_TIMER_SECONDS, type Role } from "@/lib/game";
 import { cn } from "@/lib/utils";
 
 export function RoomClient({
@@ -290,7 +291,8 @@ export function RoomClient({
             {card && !mePlayer?.ready && (
               <DossierReveal
                 mode="reveal"
-                role={card.role}
+                role={card.role ?? undefined}
+                blind={card.blind}
                 word={card.word}
                 topic={state.topicName ?? undefined}
                 onDone={() => act(() => ackReady(code))}
@@ -440,6 +442,15 @@ export function RoomClient({
               title={t("voteTitle")}
               description={t("votePrompt")}
             />
+            {state.deadlineAt && (
+              <div className="flex justify-center">
+                <TurnTimer
+                  deadlineAt={state.deadlineAt}
+                  durationSeconds={VOTE_TIMER_SECONDS}
+                  onExpire={() => act(() => resolveVotingIfExpired(code))}
+                />
+              </div>
+            )}
             <ul className="flex flex-col gap-2">
               {alivePlayers.map((p) => (
                 <li key={p.id}>
