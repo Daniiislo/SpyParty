@@ -22,6 +22,7 @@ import {
 import { Link, useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ActionOverlay } from "@/components/action-overlay";
 import { DossierCard } from "@/components/dossier-card";
 import { DossierReveal } from "@/components/dossier-reveal";
 import { PhaseBanner } from "@/components/phase-banner";
@@ -131,6 +132,7 @@ export function RoomClient({
 
   return (
     <main className="bg-blueprint relative flex min-h-dvh flex-col">
+      <ActionOverlay active={pending} label={tc("loading")} />
       <div className="relative mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-10 sm:px-6 sm:py-14">
         {/* ── Lobby ── */}
         {state.phase === "lobby" && (
