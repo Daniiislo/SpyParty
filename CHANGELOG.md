@@ -5,6 +5,40 @@ All notable changes to **Spy Party** (*Ai Là Gián Điệp*) are documented her
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] — 2026-07-17
+
+Gameplay and UX refinements on top of the first release.
+
+### Added
+- **Blind mode** — an optional room setting where nobody is told their role
+  (spy vs civilian) until the match ends; the server never sends a player their
+  role while blind, so it can't be inspected. Mutually exclusive with Mr. White
+  (blind mode auto-disables it, with an in-app explanation).
+- **Voting timer** — the voting phase now has a fixed 30-second countdown; the
+  round resolves early once everyone has voted, or on expiry (missing ballots
+  count as abstain).
+- **Always-visible room config** — the room setup (topic, spies, Mr. White,
+  blind mode, timer, rounds, max players) is shown to everyone in the lobby; the
+  host edits it inline and changes broadcast live. The separate settings page
+  was removed.
+- **Mission briefing** — a short cinematic intro plays when a match starts,
+  distinct from the lobby; the deal/reveal screen was given more polish.
+- **Action-loading overlay** — a light overlay gives immediate feedback while a
+  button's server round-trip is in flight.
+
+### Changed
+- The create-room form hides online-only fields (per-turn timer, describe
+  rounds) when the offline (deal-only) mode is selected.
+- Topics render dynamically from the database (the curated set), with
+  deterministic ordering.
+
+### Fixed
+- Topic picker ordering is now stable (`sortOrder` normalized to unique,
+  sequential values via migration); dealing always uses the DB's word pairs for
+  the selected topic and never falls back to an unrelated topic.
+- `prisma db seed` is now non-destructive (runs only when the topic table is
+  empty), so it can't clobber the imported word bank.
+
 ## [1.0.0] — 2026-07-17
 
 First production release: a complete, bilingual "who is the spy" social-deduction
@@ -70,4 +104,5 @@ word game playable end-to-end in both offline and online modes.
   `dev`/`main`.
 - Deployed on Vercel (`spy-party-vn`); `main` auto-deploys production.
 
+[1.1.0]: https://github.com/Daniiislo/SpyParty/releases/tag/v1.1.0
 [1.0.0]: https://github.com/Daniiislo/SpyParty/releases/tag/v1.0.0
