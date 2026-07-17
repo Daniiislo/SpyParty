@@ -23,6 +23,7 @@ import { DossierReveal } from "@/components/dossier-reveal";
 import { PhaseBanner } from "@/components/phase-banner";
 import { useRoomChannel } from "@/hooks/use-room-channel";
 import {
+  advanceIfExpired,
   castVote,
   fetchMyCard,
   fetchRoomState,
@@ -32,6 +33,7 @@ import {
   startMatch,
   submitClue,
 } from "@/lib/actions/rooms";
+import { TurnTimer } from "@/components/turn-timer";
 import type { MyCard, RoomState } from "@/lib/data/rooms";
 import { MIN_PLAYERS, type Role } from "@/lib/game";
 import { cn } from "@/lib/utils";
@@ -196,6 +198,14 @@ export function RoomClient({
               title={t("describeTitle")}
               description={t("describeDesc")}
             />
+            {state.deadlineAt && (
+              <div className="flex justify-center">
+                <TurnTimer
+                  deadlineAt={state.deadlineAt}
+                  onExpire={() => act(() => advanceIfExpired(code))}
+                />
+              </div>
+            )}
             {card && (
               <DossierReveal
                 mode="reveal"
@@ -262,6 +272,14 @@ export function RoomClient({
               title={t("voteTitle")}
               description={t("votePrompt")}
             />
+            {state.deadlineAt && (
+              <div className="flex justify-center">
+                <TurnTimer
+                  deadlineAt={state.deadlineAt}
+                  onExpire={() => act(() => advanceIfExpired(code))}
+                />
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {alivePlayers
                 .filter((p) => p.id !== meId)
