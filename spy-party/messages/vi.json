@@ -61,6 +61,11 @@
   "footer": {
     "copyright": "© 2026 · Trò chơi suy luận xã hội"
   },
+  "notFound": {
+    "title": "Không tìm thấy hồ sơ",
+    "description": "Trang bạn tìm đã bị di dời hoặc chưa từng tồn tại.",
+    "home": "Về trang chủ"
+  },
   "dossier": {
     "id": "Hồ sơ #A7-13",
     "statusSecret": "Tối mật",

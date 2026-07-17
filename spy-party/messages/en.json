@@ -61,6 +61,11 @@
   "footer": {
     "copyright": "© 2026 · A social deduction game"
   },
+  "notFound": {
+    "title": "Dossier not found",
+    "description": "The page you're looking for was moved or never existed.",
+    "home": "Back to home"
+  },
   "dossier": {
     "id": "Dossier #A7-13",
     "statusSecret": "Top secret",
