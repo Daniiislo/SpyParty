@@ -3,16 +3,18 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
+  Check,
   Fingerprint,
   LockOpen,
   RefreshCw,
   ShieldAlert,
   UserRound,
+  VenetianMask,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-type Role = "civilian" | "spy";
+type RevealRole = "civilian" | "spy" | "mrWhite";
 
 const GLYPHS = "ABCDEFGHJKLMNPQRSTUVWXYZ#%&░▒▓/\\";
 
@@ -20,17 +22,59 @@ function redact(word: string) {
   return word.replace(/[^ ]/g, "█");
 }
 
-export function DossierReveal() {
+function prefersReducedMotion() {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+export interface DossierRevealProps {
+  /**
+   * Real dealt word to reveal (gameplay). `null`/absent for Mr. White, who gets
+   * no word. Ignored in demo mode, which reads sample words from the catalog.
+   */
+  word?: string | null;
+  /** The player's role (gameplay). Defaults to a demo civilian/spy toggle. */
+  role?: RevealRole;
+  /** Real topic label (gameplay). Falls back to the catalog demo topic. */
+  topic?: string;
+  /** `"demo"` = landing preview (default); `"reveal"` = in-game hand-off reveal. */
+  mode?: "demo" | "reveal";
+  /** Called after the player confirms they memorized their word (reveal mode). */
+  onDone?: () => void;
+}
+
+/**
+ * The redact → scramble → settle secret-word reveal.
+ *
+ * With no props it renders the landing-page demo (civilian/spy toggle, sample
+ * words from the `dossier` catalog). In `reveal` mode it shows one player's real
+ * dealt word/role/topic, hides the perspective switch, and offers a "memorized"
+ * button that calls {@link DossierRevealProps.onDone}. Honors
+ * `prefers-reduced-motion` by skipping the scramble animation.
+ */
+export function DossierReveal({
+  word,
+  role: roleProp,
+  topic: topicProp,
+  mode = "demo",
+  onDone,
+}: DossierRevealProps) {
   const t = useTranslations("dossier");
-  // Localized sample word pair; read from the catalog inside the component
-  // (not at module scope) so it follows the active locale and plays nice with
-  // the React Compiler.
-  const words: Record<Role, string> = {
+  const isReveal = mode === "reveal";
+
+  // Demo sample words, read inside the component so they follow the active
+  // locale and play nice with the React Compiler.
+  const demoWords: Record<"civilian" | "spy", string> = {
     civilian: t("words.civilian"),
     spy: t("words.spy"),
   };
 
-  const [role, setRole] = useState<Role>("civilian");
+  const [demoRole, setDemoRole] = useState<RevealRole>("civilian");
+  const role: RevealRole = isReveal ? (roleProp ?? "civilian") : demoRole;
+
   const [revealed, setRevealed] = useState(false);
   const [scrambling, setScrambling] = useState(false);
   const [display, setDisplay] = useState("");
@@ -42,15 +86,32 @@ export function DossierReveal() {
     };
   }, []);
 
-  function scrambleTo(word: string) {
+  function wordFor(r: RevealRole): string {
+    if (isReveal) {
+      if (r === "mrWhite") return t("mrWhiteWord");
+      return word ?? "";
+    }
+    return r === "spy" ? demoWords.spy : demoWords.civilian;
+  }
+
+  const currentWord = wordFor(role);
+  const topicText = isReveal ? (topicProp ?? t("topic")) : t("topic");
+
+  function scrambleTo(target: string) {
     if (timer.current) clearInterval(timer.current);
+    // Reduced motion: jump straight to the settled word, no scramble.
+    if (prefersReducedMotion()) {
+      setScrambling(false);
+      setDisplay(target);
+      return;
+    }
     setScrambling(true);
     let tick = 0;
     const total = 16;
     timer.current = setInterval(() => {
       tick += 1;
-      const locked = Math.floor((tick / total) * word.length);
-      const next = word
+      const locked = Math.floor((tick / total) * target.length);
+      const next = target
         .split("")
         .map((ch, i) => {
           if (ch === " ") return " ";
@@ -61,7 +122,7 @@ export function DossierReveal() {
       setDisplay(next);
       if (tick >= total) {
         if (timer.current) clearInterval(timer.current);
-        setDisplay(word);
+        setDisplay(target);
         setScrambling(false);
       }
     }, 45);
@@ -69,28 +130,28 @@ export function DossierReveal() {
 
   function handleReveal() {
     setRevealed(true);
-    scrambleTo(words[role]);
+    scrambleTo(currentWord);
   }
 
   function handleSwitch() {
-    const next: Role = role === "civilian" ? "spy" : "civilian";
-    setRole(next);
-    // The switch control only renders after reveal, so always re-scramble.
-    scrambleTo(words[next]);
+    const next: RevealRole = demoRole === "civilian" ? "spy" : "civilian";
+    setDemoRole(next);
+    scrambleTo(wordFor(next));
   }
 
   const isSpy = role === "spy";
-  // Before reveal (display === "") show the redacted current word, derived live
-  // so it tracks locale and role; during/after reveal show the scrambled/final word.
-  const shown = display || redact(words[role]);
+  const isMrWhite = role === "mrWhite";
+  const isCivilian = role === "civilian";
+  const shown = display || redact(currentWord);
 
   return (
     <div
       className={cn(
         "relative overflow-hidden rounded-xl border bg-card p-6 transition-colors",
         !revealed && "border-border",
-        revealed && !isSpy && "animate-glow-pulse border-primary/40",
+        revealed && isCivilian && "animate-glow-pulse border-primary/40",
         revealed && isSpy && "animate-alert-pulse border-destructive/50",
+        revealed && isMrWhite && "border-foreground/30",
       )}
     >
       <div className="animate-scanline pointer-events-none absolute inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
@@ -103,8 +164,9 @@ export function DossierReveal() {
           className={cn(
             "text-classified rounded-sm border px-1.5 py-0.5 text-[9px]",
             !revealed && "border-border text-muted-foreground",
-            revealed && !isSpy && "border-primary/40 text-primary",
+            revealed && isCivilian && "border-primary/40 text-primary",
             revealed && isSpy && "border-destructive/50 text-destructive",
+            revealed && isMrWhite && "border-foreground/40 text-foreground",
           )}
         >
           {revealed ? t("statusDecoded") : t("statusSecret")}
@@ -115,7 +177,7 @@ export function DossierReveal() {
         <span className="text-classified text-[10px] text-muted-foreground">
           {t("topicLabel")}
         </span>
-        <p className="text-sm font-medium">{t("topic")}</p>
+        <p className="text-sm font-medium">{topicText}</p>
       </div>
 
       <div className="mt-3">
@@ -127,8 +189,9 @@ export function DossierReveal() {
             "font-mono text-3xl font-bold tracking-[0.15em] transition-colors sm:text-4xl",
             !revealed && "text-muted-foreground/70",
             revealed && scrambling && "text-foreground",
-            revealed && !scrambling && !isSpy && "text-primary",
+            revealed && !scrambling && isCivilian && "text-primary",
             revealed && !scrambling && isSpy && "text-destructive",
+            revealed && !scrambling && isMrWhite && "text-foreground",
           )}
         >
           {shown}
@@ -143,18 +206,24 @@ export function DossierReveal() {
           <span
             className={cn(
               "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium",
-              isSpy
-                ? "border-destructive/50 bg-destructive/10 text-destructive"
-                : "border-primary/40 bg-primary/10 text-primary",
+              isCivilian && "border-primary/40 bg-primary/10 text-primary",
+              isSpy && "border-destructive/50 bg-destructive/10 text-destructive",
+              isMrWhite && "border-foreground/30 bg-foreground/5 text-foreground",
             )}
           >
-            {isSpy ? (
+            {isSpy && (
               <>
                 <ShieldAlert className="size-3.5" /> {t("youAreSpy")}
               </>
-            ) : (
+            )}
+            {isCivilian && (
               <>
                 <UserRound className="size-3.5" /> {t("youAreCivilian")}
+              </>
+            )}
+            {isMrWhite && (
+              <>
+                <VenetianMask className="size-3.5" /> {t("youAreMrWhite")}
               </>
             )}
           </span>
@@ -163,14 +232,22 @@ export function DossierReveal() {
 
       <div className="mt-5 flex gap-2">
         {!revealed ? (
-          <Button onClick={handleReveal} className="h-10 flex-1 gap-2">
+          <Button onClick={handleReveal} className="h-11 flex-1 gap-2">
             <LockOpen className="size-4" /> {t("decode")}
+          </Button>
+        ) : isReveal ? (
+          <Button
+            onClick={onDone}
+            disabled={scrambling}
+            className="h-11 flex-1 gap-2"
+          >
+            <Check className="size-4" /> {t("memorized")}
           </Button>
         ) : (
           <Button
             onClick={handleSwitch}
             variant="outline"
-            className="h-10 flex-1 gap-2"
+            className="h-11 flex-1 gap-2"
           >
             <RefreshCw className="size-4" /> {t("switch")}
           </Button>

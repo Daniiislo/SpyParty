@@ -28,8 +28,9 @@ Technical details live in [CLAUDE.md](../CLAUDE.md). In short:
 - **Civilian** — receives the "civilian word".
 - **Spy / Undercover** — receives the "spy word", which is *similar* to the
   civilian word to create ambiguity.
-- _(TBD — possible future role)_ **Mr. White / blank**: receives no word and must
-  infer it from others' descriptions.
+- **Mr. White / blank** *(in v1)*: receives no word and must infer it from others'
+  descriptions; if eliminated, may **steal the win** by correctly guessing the
+  civilian word.
 
 ## 4. Room types
 
@@ -59,25 +60,38 @@ Technical details live in [CLAUDE.md](../CLAUDE.md). In short:
 4. The most-voted player is **eliminated**.
 5. Check win/loss → continue or end.
 
-## 7. Win conditions (current description)
+## 7. Win conditions (v1 — multi-round)
 
-- Eliminate a spy **AND** no spies remain → **civilians WIN**.
-- Otherwise → **civilians LOSE**.
+Play continues round by round until one side wins:
 
-> _(TBD)_ Standard multi-round variant: keep playing until all spies are found
-> (civilians win) **or** spies reach parity with civilians (spies win); a spy may
-> claw back by correctly guessing the civilian word.
+- **Civilians win** when no spies and no Mr. White remain alive.
+- **Spies (impostors) win** at **parity** — `aliveNonCivilians >= aliveCivilians` —
+  or when `maxRounds` is exhausted with an impostor still alive (they evaded
+  detection).
+- **Mr. White steal:** if Mr. White is eliminated, a short guess sub-phase lets them
+  win outright by guessing the civilian word (diacritic-folded compare) — a correct
+  steal overrides a civilian win.
+- **Tie-break on votes:** one sudden-death revote among the tied candidates; if it is
+  still tied, no elimination that round.
 
-## 8. Open questions / to decide
+## 8. Decisions (v1) & remaining open questions
 
-- Realtime stack for online rooms (self-hosted WebSocket? Pusher/Ably? Supabase
-  Realtime?).
-- **Tie-break** handling on votes.
-- Include a **Mr. White** role?
-- Scoring across matches / a **leaderboard**?
-- Per-turn **timer**?
-- Source of the **word-pair** data: hand-authored / AI-generated / existing DB?
-- Persistence (which DB? rooms & match history).
+**Decided** — full detail in [specs/spy-party-game.md](./specs/spy-party-game.md):
+
+- **Realtime + DB:** **Supabase** — Postgres is the source of truth (via Prisma);
+  Realtime is a broadcast + presence bus (**not** Postgres Changes).
+- **Word-pair data:** stored in **Postgres** (Prisma `WordPair`, bilingual VI/EN),
+  seeded; a small in-repo bank bootstraps the offline MVP before the schema lands.
+- **Mr. White**, **per-turn timer**, **multi-round**, and **leaderboard/history**:
+  all **in v1**.
+- **Tie-break:** sudden-death revote → no elimination if still tied.
+- **Identity:** host is a signed-in Clerk user; participants join by name + room code
+  (guest, no account).
+
+**Still open (deferred, non-blocking):** guest→account linking; host-disconnect
+migration / co-host; late-join-as-spectator (v1 rejects after start); join-code
+recycling; stale-room GC; separate Supabase project for preview/dev; public vs
+secret ballot display.
 
 ## 9. Related docs
 

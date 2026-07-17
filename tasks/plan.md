@@ -1,55 +1,63 @@
-# Implementation Plan: Bilingual EN/VI (i18n)
+# Implementation plan — Spy Party full game
 
-Spec: [../docs/specs/i18n-bilingual.md](../docs/specs/i18n-bilingual.md) · Concept: [../docs/ideas/i18n-bilingual.md](../docs/ideas/i18n-bilingual.md)
+Canonical spec: [../docs/specs/spy-party-game.md](../docs/specs/spy-party-game.md).
+This file is the file-by-file implementation map; [todo.md](./todo.md) is the
+ordered task checklist. All paths are under `spy-party/`.
 
-## Overview
-Add next-intl with URL-prefixed locales (`/vi`, `/en`), default `vi` + browser
-auto-detection. Foundation first (config + `[locale]` restructure + middleware —
-the riskiest part), then localize every surface, then tests + docs.
+## File map (new / changed)
 
-## Architecture Decisions
-- **next-intl v4**, `localePrefix: "always"`, `localeDetection: true`, default `vi`.
-- **Root layout moves into `app/[locale]/layout.tsx`** (single root layout; no double `<html>`); `global-not-found.tsx` handles unmatched URLs.
-- **`src/proxy.ts`** runs `createMiddleware(routing)` inside `clerkMiddleware()`, early-returning (skip i18n) for `/api`, `/trpc`, `/__clerk`; matcher unchanged.
-- **`<NextIntlClientProvider>`** wraps `<ClerkProvider>` so the one Client Component (`dossier-reveal`) and Clerk both localize; Clerk `localization` picked per-locale (`viVN`/`enUS`).
-- **Vitest** (Babel react plugin, no react-compiler in test transform).
+```
+prisma/schema.prisma                     Topic, WordPair, Room, Player, Match,
+                                         MatchPlayer, Round, Turn, Vote,
+                                         MrWhiteGuess, MatchResult, LeaderboardStat
+prisma/seed.ts + prisma.config.ts        migrations.seed (tsx); bilingual starter bank
+src/lib/game/*                           pure engine (types/rng/deal/turns/voting/
+                                         winConditions/mrWhite/scoring/machine) + tests
+src/lib/game/word-bank.ts                Phase-1 in-repo bilingual bootstrap
+src/lib/actions/*.ts                     'use server' mutations (auth re-verified)
+src/lib/auth/guest-session.ts            issue/verify guest cookie
+src/lib/supabase/{server,client}.ts      service-role broadcast / anon Realtime
+src/hooks/use-room-channel.ts            subscribe + presence
+src/data/rooms.ts                        server-only DAL (never returns others' words)
+src/app/[locale]/layout.tsx              refactor chrome → (marketing)/(play) groups
+src/app/[locale]/(marketing)/page.tsx    landing (wire CTAs)
+src/app/[locale]/(play)/offline/...      offline setup + phase-machine play screen
+src/app/[locale]/(play)/create           online create (Clerk-gated)
+src/app/[locale]/(play)/join[,/[code]]   guest join by code + name
+src/app/[locale]/(play)/room/[code]/...  room shell + loading/error/not-found
+src/app/[locale]/leaderboard, /match/[id]  standings + shareable recap
+src/app/api/{realtime/token,cron/sweep-timers}/route.ts
+src/components/*                          dossier-card, room-code-display, copy-button,
+                                         player-list/presence-dot, timer-ring,
+                                         vote-panel, results-table, handoff-gate,
+                                         phase-banner, count steppers, topic-picker,
+                                         word-mark; EDIT dossier-reveal.tsx
+messages/{vi,en}.json                    new namespaces (parity test enforced)
+src/proxy.ts                             add host-only createRouteMatcher gate
+```
 
-## Task List
+## Reuse (don't reinvent)
 
-### Phase 1: Foundation (highest risk first)
-- [ ] Task 1: Install dependencies (next-intl + Vitest set)
-- [ ] Task 2: i18n core config (routing/request/navigation + next.config plugin)
-- [ ] Task 3: Restructure into `app/[locale]/` + providers + `<html lang>`
-- [ ] Task 4: Compose middleware in `src/proxy.ts`
+- `src/components/dossier-reveal.tsx` — the redact→scramble→settle reveal; parametrize
+  (`word`/`role`/`topic`/`mode`/`onDone`), keep demo defaults so existing tests pass,
+  add a `prefers-reduced-motion` short-circuit.
+- `src/components/ui/button.tsx` — `asChild` + `Link` from `@/i18n/navigation`
+  (pattern already in `not-found.tsx`).
+- `src/lib/utils.ts` `cn()`; `src/lib/prisma.ts` singleton; `src/i18n/navigation.ts`.
+- Design tokens/motifs in `src/app/globals.css`.
 
-### Checkpoint: Foundation
-- [ ] `npm run build` clean; `/` → `/vi`; `/en` renders; `/fr` 404s; Clerk sign-in modal still opens.
+## Phase order & dependencies
 
-### Phase 2: Localize all surfaces
-- [ ] Task 5: Message catalogs `messages/{en,vi}.json` (all namespaces)
-- [ ] Task 6: Localize `layout.tsx` (nav + generateMetadata + Clerk locale) + `language-switcher.tsx`
-- [ ] Task 7: Localize `page.tsx` (hero `t.rich`, roles, steps, cta, footer)
-- [ ] Task 8: Localize `dossier-reveal.tsx` (client `useTranslations`)
-- [ ] Task 9: `not-found.tsx` (in-locale) + `global-not-found.tsx`
+P0 spec → P1 offline MVP (engine is the shared foundation) → P2 data layer (prereq
+for both modes) → P3 online rooms (largest risk; depends on the proven engine) → P4
+advanced (additive; layers onto a working core). **Review gate between phases.**
 
-### Checkpoint: Core
-- [ ] Both locales render full UI; switcher preserves path; Clerk modal localizes; no hard-coded UI string remains.
+## Risks & mitigations
 
-### Phase 3: Tests + docs
-- [ ] Task 10: Vitest config/setup + `test` script
-- [ ] Task 11: Five required tests (parity, rich-tag parity, redirect, switcher, render)
-- [ ] Task 12: Update `docs/DESIGN_SYSTEM.md` with the i18n convention
-
-### Checkpoint: Complete
-- [ ] lint + `tsc --noEmit` + test + build all pass; manual `dev` check at 360/768/1280.
-
-## Risks and Mitigations
 | Risk | Impact | Mitigation |
-|------|--------|------------|
-| next-intl peer range excludes Next 16 | Med | `--legacy-peer-deps`; validate with build/dev early (Task 1–3) |
-| Middleware composition breaks Clerk/`__clerk`/api | High | Early return for those paths; redirect test; manual sign-in check at checkpoint |
-| Client component can't read messages | Med | Ensure `NextIntlClientProvider` wraps the tree in `[locale]/layout` |
-| React Compiler + module-scope translated words | Low | Read `t("words.*")` inside the component, not at module scope |
-
-## Open Questions
-None blocking (see spec).
+|------|--------|-----------|
+| Vercel serverless can't hold WebSockets | High | Supabase Realtime as hosted bus; server broadcasts over HTTPS; timers via client watchdog + cron |
+| Secret words leaking to clients | High | Never broadcast words; token-scoped per-player fetch; no Postgres Changes; `server-only` DAL |
+| Guest impersonation | Med | Opaque 256-bit token, hashed at rest, httpOnly cookie; server re-verifies every mutation |
+| Rules diverging between offline/online | Med | One pure engine (`src/lib/game/`) shared by both; deterministic seeded tests |
+| Next 16 API drift from training data | Med | Consult `node_modules/next/dist/docs/` before each Next API use |
