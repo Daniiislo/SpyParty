@@ -4,13 +4,21 @@
 > it. Related: [GAME_CONCEPT.md](./GAME_CONCEPT.md), [CLAUDE.md](../CLAUDE.md).
 >
 > **Status: LOCKED & APPLIED** — *Classified Dossier* concept · **dark-first**
-> (light mode available) · **amber** primary · **crimson** alert. Tokens and
-> helpers are live in [globals.css](../spy-party/src/app/globals.css); a demo
-> homepage applies them ([page.tsx](../spy-party/src/app/page.tsx),
+> (light mode available) · **amber** primary · **crimson** alert ·
+> **mobile-first & responsive**. Tokens and helpers are live in
+> [globals.css](../spy-party/src/app/globals.css); the official landing page
+> applies them ([page.tsx](../spy-party/src/app/page.tsx),
 > [layout.tsx](../spy-party/src/app/layout.tsx),
 > [dossier-reveal.tsx](../spy-party/src/components/dossier-reveal.tsx)).
 
 ## 1. Concept
+
+> **Brand name:** the product is **Spy Party**, rendered as the uppercase wordmark
+> `SPY PARTY` (second word in amber `text-primary`). "Ai Là Gián Điệp" is a
+> Vietnamese descriptive tagline only — not the brand — and *"Hồ Sơ Mật" /
+> "Classified Dossier"* names the **visual concept**, not the product. Use "Spy
+> Party" in every wordmark, page title, and metadata string; the Vietnamese
+> tagline may still appear in copy/metadata where it helps players.
 
 The UI reads like a **high-end intelligence tool**: a dark briefing-room
 backdrop, player cards styled as **agent dossiers**, and secret words shown as
@@ -18,13 +26,39 @@ backdrop, player cards styled as **agent dossiers**, and secret words shown as
 professional — the "spy game" flavor comes from **motifs + motion**, not from
 loud colors.
 
-## 2. Three core principles
+## 2. Core principles
 
 1. **Dark-first.** Dark is the default; light mode is polished but secondary.
 2. **Disciplined palette.** One accent (amber) + one **alert** color (crimson)
    reserved for tense moments (voting, elimination, spy reveal). Elegance comes
    from restraint.
 3. **Spy flavor via motifs & motion**, never via garish color.
+4. **Mobile-first & responsive (non-negotiable).** This is a party game played on
+   phones first. Every screen must look and work great on small screens *before*
+   it scales up. See [§2.1](#21-mobile-first--responsive-non-negotiable).
+
+### 2.1. Mobile-first & responsive (non-negotiable)
+
+Every new view, component, and change **must** be responsive. Treat this as an
+acceptance criterion, not a nice-to-have.
+
+- **Design for the smallest screen first**, then enhance with `sm:` / `md:` /
+  `lg:` modifiers. Base (unprefixed) classes target mobile. We rely on Tailwind's
+  default breakpoints: `sm` 640px · `md` 768px · `lg` 1024px · `xl` 1280px.
+- **Support down to a ~360px viewport** with no horizontal scroll and no clipped
+  content. Sanity-check at **360 / 768 / 1280** widths.
+- **Stack on mobile, spread on desktop.** Default to `flex-col` / single-column
+  grids and switch to rows / multi-column at `sm:`+ (e.g. `flex-col sm:flex-row`,
+  `grid sm:grid-cols-2 lg:grid-cols-4`). Use `max-w-*` + `mx-auto` to cap line
+  length; constrain media with `w-full` + `max-w-*`.
+- **Fluid type & spacing.** Scale headings up at breakpoints (e.g.
+  `text-4xl sm:text-6xl`); use tighter gutters on mobile (`px-4 sm:px-6`).
+- **Tap targets ≥ 44px.** Interactive controls must stay comfortably tappable;
+  prefer full-width primary actions on mobile (`w-full sm:w-auto`).
+- **Respect safe areas & `min-h-dvh`** (not `min-h-screen`) so mobile browser
+  chrome doesn't crop the layout.
+- Never hard-code pixel widths that can overflow a phone; prefer `min-w-0`,
+  `truncate`, `flex-wrap`, and fluid units.
 
 ## 3. Color tokens
 
@@ -138,14 +172,14 @@ subtle noise backdrops.
 
 - Tokens, helpers, keyframes → [globals.css](../spy-party/src/app/globals.css)
 - App shell / header / dark-first `<html>` → [layout.tsx](../spy-party/src/app/layout.tsx)
-- Demo homepage → [page.tsx](../spy-party/src/app/page.tsx)
-- Interactive reveal demo → [dossier-reveal.tsx](../spy-party/src/components/dossier-reveal.tsx)
+- Official landing page → [page.tsx](../spy-party/src/app/page.tsx)
+- Interactive reveal (landing preview) → [dossier-reveal.tsx](../spy-party/src/components/dossier-reveal.tsx)
 
 ## 9. Status
 
 - ✅ Done: concept locked; dark-first; amber/crimson tokens applied; `--font-sans`
-  wiring fixed; motif/motion helpers added; demo homepage built and building
-  cleanly.
+  wiring fixed; motif/motion helpers added; official landing page built,
+  responsive (mobile→desktop), and building cleanly.
 - ⬜ Open: light-mode visual QA & contrast pass; theme toggle (light/dark); a
   logo/wordmark asset; real word-pair data; reusable dossier-card primitive;
-  Clerk modal dark theming (`@clerk/themes`).
+  Clerk modal dark theming (`@clerk/themes`); wire room CTAs to create/join flows.

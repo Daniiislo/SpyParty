@@ -54,4 +54,4 @@ Next.js 16 has breaking changes to APIs, conventions, and file structure. **Befo
 
 ## State of the project
 
-This is essentially the create-next-app + Clerk + shadcn starter — `src/app/page.tsx` is still the default template page. There is no domain logic, data layer, or API routes yet. The product being built is **Ai Là Gián Điệp** (a "who is the spy" word game) — see [docs/GAME_CONCEPT.md](docs/GAME_CONCEPT.md) for rules and scope.
+This is essentially the create-next-app + Clerk + shadcn starter — `src/app/page.tsx` is still the default template page. There is no domain logic, data layer, or API routes yet. The product being built is **Spy Party** (Vietnamese tagline: *Ai Là Gián Điệp*), a "who is the spy" word game — see [docs/GAME_CONCEPT.md](docs/GAME_CONCEPT.md) for rules and scope.

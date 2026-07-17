@@ -45,13 +45,13 @@ export default function Home() {
       <section className="relative overflow-hidden border-b border-border/60">
         <div className="bg-blueprint pointer-events-none absolute inset-0 opacity-40" />
         <div className="glow-hero pointer-events-none absolute inset-0" />
-        <div className="relative mx-auto flex w-full max-w-5xl flex-col items-center gap-12 px-6 py-20 sm:py-28 lg:flex-row lg:gap-16">
+        <div className="relative mx-auto flex w-full max-w-5xl flex-col items-center gap-12 px-4 py-20 sm:px-6 sm:py-28 lg:flex-row lg:gap-16">
           <div className="flex flex-1 flex-col items-center text-center lg:items-start lg:text-left">
             <span className="text-classified inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-[11px] text-primary">
               <Fingerprint className="size-3.5" /> Hồ sơ mật · Briefing
             </span>
             <h1 className="mt-6 text-4xl font-bold tracking-tight sm:text-6xl">
-              AI LÀ <span className="text-primary">GIÁN ĐIỆP</span>
+              SPY <span className="text-primary">PARTY</span>
             </h1>
             <p className="mt-5 max-w-md text-base text-muted-foreground sm:text-lg">
               Mỗi người nhận một từ bí mật. Gián điệp nhận từ{" "}
@@ -59,13 +59,13 @@ export default function Home() {
               khéo, bỏ phiếu thật tinh — và lật mặt kẻ giả danh trước khi quá
               muộn.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Button className="h-11 gap-2 px-6 text-sm font-semibold">
+            <div className="mt-8 flex w-full max-w-xs flex-col gap-3 sm:w-auto sm:max-w-none sm:flex-row">
+              <Button className="h-11 w-full gap-2 px-6 text-sm font-semibold sm:w-auto">
                 <Radar className="size-4" /> Tạo phòng
               </Button>
               <Button
                 variant="outline"
-                className="h-11 gap-2 px-6 text-sm font-semibold"
+                className="h-11 w-full gap-2 px-6 text-sm font-semibold sm:w-auto"
               >
                 <Users className="size-4" /> Tham gia phòng
               </Button>
@@ -83,7 +83,7 @@ export default function Home() {
       </section>
 
       {/* ── Roles ── */}
-      <section className="mx-auto w-full max-w-5xl px-6 py-16 sm:py-20">
+      <section className="mx-auto w-full max-w-5xl px-4 py-16 sm:px-6 sm:py-20">
         <div className="text-center">
           <span className="text-classified text-[11px] text-muted-foreground">
             Phân vai
@@ -130,7 +130,7 @@ export default function Home() {
 
       {/* ── How it works ── */}
       <section className="border-y border-border/60 bg-card/30">
-        <div className="mx-auto w-full max-w-5xl px-6 py-16 sm:py-20">
+        <div className="mx-auto w-full max-w-5xl px-4 py-16 sm:px-6 sm:py-20">
           <div className="text-center">
             <span className="text-classified text-[11px] text-muted-foreground">
               Quy trình
@@ -160,8 +160,8 @@ export default function Home() {
       </section>
 
       {/* ── Closing CTA ── */}
-      <section className="mx-auto w-full max-w-5xl px-6 py-20">
-        <div className="relative overflow-hidden rounded-2xl border border-primary/25 bg-card p-10 text-center">
+      <section className="mx-auto w-full max-w-5xl px-4 py-16 sm:px-6 sm:py-20">
+        <div className="relative overflow-hidden rounded-2xl border border-primary/25 bg-card p-6 text-center sm:p-10">
           <div className="bg-blueprint pointer-events-none absolute inset-0 opacity-30" />
           <div className="glow-hero pointer-events-none absolute inset-0" />
           <div className="relative">
@@ -179,9 +179,18 @@ export default function Home() {
 
       {/* ── Footer ── */}
       <footer className="border-t border-border/60">
-        <div className="text-classified mx-auto flex w-full max-w-5xl flex-col items-center justify-between gap-2 px-6 py-6 text-[11px] text-muted-foreground sm:flex-row">
-          <span>Ai Là Gián Điệp · Demo build</span>
-          <span>Phân loại: Tối mật · Clearance L5</span>
+        <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-4 px-4 py-8 text-center sm:flex-row sm:justify-between sm:gap-2 sm:px-6 sm:text-left">
+          <div className="flex items-center gap-2.5">
+            <span className="flex size-8 items-center justify-center rounded-md border border-primary/30 bg-primary/10 text-primary">
+              <VenetianMask className="size-4" />
+            </span>
+            <span className="text-sm font-semibold tracking-wide">
+              SPY PARTY
+            </span>
+          </div>
+          <p className="text-classified text-[11px] text-muted-foreground">
+            © 2026 · Trò chơi suy luận xã hội
+          </p>
         </div>
       </footer>
     </main>
