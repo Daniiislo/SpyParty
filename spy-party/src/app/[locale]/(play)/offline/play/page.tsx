@@ -89,10 +89,13 @@ export default function OfflinePlayPage() {
     }
   }
 
-  function confirmElimination() {
-    const next = applyElimination(game, selectedTarget);
+  // `target` is passed explicitly (not read from state) so the abstain button
+  // resolves with null even when a candidate is currently selected — reading the
+  // `selectedTarget` closure here would use its stale pre-click value.
+  function resolveRound(target: string | null) {
+    const next = applyElimination(game, target);
     const oc = evaluateOutcome(next);
-    setEliminatedId(selectedTarget);
+    setEliminatedId(target);
     setOutcome(oc);
     setBoot((b) => (b ? { ...b, game: applyOutcome(next, oc) } : b));
     setUi("elimination");
@@ -221,7 +224,7 @@ export default function OfflinePlayPage() {
             </div>
             <div className="flex flex-col gap-2">
               <Button
-                onClick={confirmElimination}
+                onClick={() => resolveRound(selectedTarget)}
                 disabled={!selectedTarget}
                 variant="destructive"
                 className="h-12 w-full gap-2 text-sm font-semibold"
@@ -234,10 +237,7 @@ export default function OfflinePlayPage() {
                   : t("voteTitle")}
               </Button>
               <Button
-                onClick={() => {
-                  setSelectedTarget(null);
-                  confirmElimination();
-                }}
+                onClick={() => resolveRound(null)}
                 variant="ghost"
                 className="h-11 w-full text-xs"
               >
