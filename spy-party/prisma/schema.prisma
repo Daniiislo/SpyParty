@@ -110,11 +110,12 @@ model Room {
   id           String     @id @default(cuid())
   code         String     @unique
   status       RoomStatus @default(LOBBY)
-  hostUserId   String
-  topicSlug    String?
-  spyCount     Int        @default(1)
-  mrWhiteCount Int        @default(0)
-  gameLocale   String     @default("vi")
+  hostUserId       String
+  topicSlug        String?
+  spyCount         Int        @default(1)
+  mrWhiteCount     Int        @default(0)
+  turnTimerSeconds Int?
+  gameLocale       String     @default("vi")
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   expiresAt    DateTime?
@@ -160,6 +161,8 @@ model Match {
   winnerSide   WinnerSide?
   /// When phase = MR_WHITE_GUESS, the eliminated Mr. White who may steal the win.
   pendingMrWhitePlayerId String?
+  /// Server-authoritative deadline for the current timed phase (describe/vote).
+  deadlineAt   DateTime?
   createdAt    DateTime      @default(now())
   endedAt      DateTime?
   matchPlayers MatchPlayer[]

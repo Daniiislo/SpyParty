@@ -29,6 +29,7 @@ export function CreateRoomForm({
   const [hostName, setHostName] = useState("");
   const [spyCount, setSpyCount] = useState(1);
   const [mrWhite, setMrWhite] = useState(false);
+  const [turnTimer, setTurnTimer] = useState<number | null>(null);
   const [topicSlug, setTopicSlug] = useState(topics[0]?.slug ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -42,6 +43,7 @@ export function CreateRoomForm({
         locale,
         hostName,
         mrWhiteCount: mrWhite ? 1 : 0,
+        turnTimerSeconds: turnTimer,
       });
       if ("ok" in res && res.code) router.push(`/room/${res.code}`);
       else setError(t("errGeneric"));
@@ -107,6 +109,33 @@ export function CreateRoomForm({
               )}
             />
           </button>
+        </section>
+
+        <section className="mt-8 flex items-center justify-between gap-4">
+          <Label className="text-classified text-[11px] text-muted-foreground">
+            {t("timerLabel")}
+          </Label>
+          <div className="flex gap-1.5">
+            {([null, 30, 60] as const).map((opt) => {
+              const active = turnTimer === opt;
+              return (
+                <button
+                  key={String(opt)}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setTurnTimer(opt)}
+                  className={cn(
+                    "h-9 rounded-lg border px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    active
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:bg-muted",
+                  )}
+                >
+                  {opt === null ? t("timerOff") : `${opt}s`}
+                </button>
+              );
+            })}
+          </div>
         </section>
 
         <section className="mt-8">
