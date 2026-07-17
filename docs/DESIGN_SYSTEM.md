@@ -60,6 +60,25 @@ acceptance criterion, not a nice-to-have.
 - Never hard-code pixel widths that can overflow a phone; prefer `min-w-0`,
   `truncate`, `flex-wrap`, and fluid units.
 
+### 2.2. Bilingual & i18n (non-negotiable)
+
+The app ships **English + Vietnamese** via **next-intl** with URL-prefixed locales
+(`/vi` default, `/en`; browser auto-detection on first visit). Treat this as an
+acceptance criterion for every new screen. Full spec:
+[i18n-bilingual](specs/i18n-bilingual.md).
+
+- **No hard-coded user-facing copy.** Every string lives in `messages/vi.json` +
+  `messages/en.json` (namespaced by section) and is read via `getTranslations`
+  (Server Components) or `useTranslations` (Client Components). Keep the two
+  catalogs' key sets identical — a test enforces parity.
+- **Locale-aware navigation.** Import `Link` / `useRouter` / `usePathname` from
+  `@/i18n/navigation`, never from `next/link` / `next/navigation`, so the locale
+  prefix is preserved.
+- **Locale flows from the route** (`app/[locale]/…`): `<html lang>`, metadata, and
+  Clerk's `localization` (`enUS` / `viVN`) all derive from it.
+- **Exempt from translation:** brand marks (the `SPY PARTY` wordmark) and the
+  deliberate English "classified" motif labels only.
+
 ## 3. Color tokens
 
 Mapped onto the existing shadcn variables in

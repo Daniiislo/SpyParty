@@ -1,0 +1,87 @@
+{
+  "metadata": {
+    "title": "Spy Party — Who Is the Spy",
+    "description": "Get a secret word, describe it cleverly, and unmask the impostor. A social deduction game for your group — play online or offline."
+  },
+  "nav": {
+    "classified": "Classified · Briefing",
+    "signIn": "Sign in",
+    "signUp": "Join"
+  },
+  "hero": {
+    "badge": "Classified · Briefing",
+    "tagline": "Everyone gets a secret word. The spy gets a <hl>similar</hl> one. Describe it cleverly, vote sharply — and unmask the impostor before it's too late.",
+    "createRoom": "Create room",
+    "joinRoom": "Join room",
+    "stat1": "3–12 agents",
+    "stat2": "Online & Offline",
+    "stat3": "Many topics"
+  },
+  "roles": {
+    "eyebrow": "Roles",
+    "heading": "Two sides, one truth",
+    "civilian": {
+      "title": "Civilian",
+      "tag": "Insider",
+      "desc": "You and your teammates share one word. Describe it clearly enough to recognize each other — but not so plainly that the spy guesses your word."
+    },
+    "spy": {
+      "title": "Spy",
+      "tag": "Undercover",
+      "desc": "You get a similar word but don't know the original. Blend into the crowd, describe it vaguely, and survive each round of voting."
+    }
+  },
+  "steps": {
+    "eyebrow": "How it works",
+    "heading": "How a round plays out",
+    "items": {
+      "01": {
+        "title": "Create a room",
+        "desc": "Pick the player count, the number of spies, and a topic."
+      },
+      "02": {
+        "title": "Get your word",
+        "desc": "Each agent opens their classified dossier to see their own word."
+      },
+      "03": {
+        "title": "Describe",
+        "desc": "Taking turns, everyone gives one clue for their word."
+      },
+      "04": {
+        "title": "Hunt",
+        "desc": "Vote to eliminate a suspect. Unmask every spy to win."
+      }
+    }
+  },
+  "cta": {
+    "heading": "Ready to play your part?",
+    "desc": "Gather your team, deal the dossiers, and see who the real impostor is.",
+    "button": "Start the mission"
+  },
+  "footer": {
+    "copyright": "© 2026 · A social deduction game"
+  },
+  "notFound": {
+    "title": "Dossier not found",
+    "description": "The page you're looking for was moved or never existed.",
+    "home": "Back to home"
+  },
+  "dossier": {
+    "id": "Dossier #A7-13",
+    "statusSecret": "Top secret",
+    "statusDecoded": "Decoded",
+    "topicLabel": "Topic",
+    "topic": "Drinks",
+    "wordLabel": "Your word",
+    "youAreSpy": "You are the Spy",
+    "youAreCivilian": "You are a Civilian",
+    "decode": "Decode dossier",
+    "switch": "Switch perspective",
+    "hintBefore": "Tap to see which word you got",
+    "hintAfter": "Two similar words to sow confusion",
+    "words": {
+      "civilian": "COFFEE",
+      "spy": "BUBBLE TEA"
+    }
+  }
+}

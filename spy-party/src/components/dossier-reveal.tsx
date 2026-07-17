@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Fingerprint,
   LockOpen,
@@ -13,11 +14,6 @@ import { cn } from "@/lib/utils";
 
 type Role = "civilian" | "spy";
 
-const TOPIC = "Đồ uống";
-const WORDS: Record<Role, string> = {
-  civilian: "CÀ PHÊ",
-  spy: "TRÀ SỮA",
-};
 const GLYPHS = "ABCDEFGHJKLMNPQRSTUVWXYZ#%&░▒▓/\\";
 
 function redact(word: string) {
@@ -25,10 +21,19 @@ function redact(word: string) {
 }
 
 export function DossierReveal() {
+  const t = useTranslations("dossier");
+  // Localized sample word pair; read from the catalog inside the component
+  // (not at module scope) so it follows the active locale and plays nice with
+  // the React Compiler.
+  const words: Record<Role, string> = {
+    civilian: t("words.civilian"),
+    spy: t("words.spy"),
+  };
+
   const [role, setRole] = useState<Role>("civilian");
   const [revealed, setRevealed] = useState(false);
   const [scrambling, setScrambling] = useState(false);
-  const [display, setDisplay] = useState(() => redact(WORDS.civilian));
+  const [display, setDisplay] = useState("");
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -64,20 +69,20 @@ export function DossierReveal() {
 
   function handleReveal() {
     setRevealed(true);
-    scrambleTo(WORDS[role]);
+    scrambleTo(words[role]);
   }
 
   function handleSwitch() {
     const next: Role = role === "civilian" ? "spy" : "civilian";
     setRole(next);
-    if (revealed) {
-      scrambleTo(WORDS[next]);
-    } else {
-      setDisplay(redact(WORDS[next]));
-    }
+    // The switch control only renders after reveal, so always re-scramble.
+    scrambleTo(words[next]);
   }
 
   const isSpy = role === "spy";
+  // Before reveal (display === "") show the redacted current word, derived live
+  // so it tracks locale and role; during/after reveal show the scrambled/final word.
+  const shown = display || redact(words[role]);
 
   return (
     <div
@@ -92,7 +97,7 @@ export function DossierReveal() {
 
       <div className="flex items-center justify-between text-muted-foreground">
         <span className="text-classified inline-flex items-center gap-1.5 text-[10px]">
-          <Fingerprint className="size-3.5" /> Hồ sơ #A7-13
+          <Fingerprint className="size-3.5" /> {t("id")}
         </span>
         <span
           className={cn(
@@ -102,20 +107,20 @@ export function DossierReveal() {
             revealed && isSpy && "border-destructive/50 text-destructive",
           )}
         >
-          {revealed ? "Đã giải mã" : "Tối mật"}
+          {revealed ? t("statusDecoded") : t("statusSecret")}
         </span>
       </div>
 
       <div className="mt-6">
         <span className="text-classified text-[10px] text-muted-foreground">
-          Chủ đề
+          {t("topicLabel")}
         </span>
-        <p className="text-sm font-medium">{TOPIC}</p>
+        <p className="text-sm font-medium">{t("topic")}</p>
       </div>
 
       <div className="mt-3">
         <span className="text-classified text-[10px] text-muted-foreground">
-          Từ của bạn
+          {t("wordLabel")}
         </span>
         <p
           className={cn(
@@ -126,7 +131,7 @@ export function DossierReveal() {
             revealed && !scrambling && isSpy && "text-destructive",
           )}
         >
-          {display}
+          {shown}
           {scrambling && (
             <span className="ml-0.5 inline-block animate-pulse">▌</span>
           )}
@@ -145,11 +150,11 @@ export function DossierReveal() {
           >
             {isSpy ? (
               <>
-                <ShieldAlert className="size-3.5" /> Bạn là Gián điệp
+                <ShieldAlert className="size-3.5" /> {t("youAreSpy")}
               </>
             ) : (
               <>
-                <UserRound className="size-3.5" /> Bạn là Người thường
+                <UserRound className="size-3.5" /> {t("youAreCivilian")}
               </>
             )}
           </span>
@@ -159,7 +164,7 @@ export function DossierReveal() {
       <div className="mt-5 flex gap-2">
         {!revealed ? (
           <Button onClick={handleReveal} className="h-10 flex-1 gap-2">
-            <LockOpen className="size-4" /> Giải mã hồ sơ
+            <LockOpen className="size-4" /> {t("decode")}
           </Button>
         ) : (
           <Button
@@ -167,15 +172,13 @@ export function DossierReveal() {
             variant="outline"
             className="h-10 flex-1 gap-2"
           >
-            <RefreshCw className="size-4" /> Đổi góc nhìn
+            <RefreshCw className="size-4" /> {t("switch")}
           </Button>
         )}
       </div>
 
       <p className="text-classified mt-3 text-center text-[10px] text-muted-foreground">
-        {revealed
-          ? "Hai từ gần giống để gây nhiễu"
-          : "Nhấn để xem bạn nhận từ nào"}
+        {revealed ? t("hintAfter") : t("hintBefore")}
       </p>
     </div>
   );
