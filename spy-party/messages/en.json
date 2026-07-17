@@ -250,7 +250,15 @@
     "settings": "Settings",
     "save": "Save",
     "maxPlayersLabel": "Max players",
-    "stayHint": "Stay in the room — the host can start a new game."
+    "stayHint": "Stay in the room — the host can start a new game.",
+    "disband": "Disband room",
+    "disbandConfirmTitle": "Disband this room?",
+    "disbandConfirmDesc": "All players will be removed and this room will be permanently deleted. This cannot be undone.",
+    "disbandConfirmAction": "Disband",
+    "returnToRoom": "Return to room",
+    "voteDetailsTitle": "Who voted for whom",
+    "notVotedYet": "Not voted",
+    "abstained": "Abstained"
   },
   "leaderboard": {
     "eyebrow": "Top agents",

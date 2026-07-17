@@ -694,6 +694,19 @@ export async function fetchMyCard(code: string): Promise<MyCard | null> {
   return getMyCard(code);
 }
 
+/** The host disbands (permanently deletes) the room. Cascades to players/matches. */
+export async function disbandRoom(code: string): Promise<ActionResult> {
+  const { userId } = await auth();
+  const room = await prisma.room.findUnique({ where: { code: code.toUpperCase() } });
+  if (!room) return { ok: true };
+  if (!userId || room.hostUserId !== userId) return { error: "forbidden" };
+  const roomId = room.id;
+  await prisma.room.delete({ where: { id: roomId } });
+  // Fire after the row is gone so subscribers refetch → null → leave the room.
+  await broadcastRoom(roomId);
+  return { ok: true };
+}
+
 /** A guest leaves the lobby. */
 export async function leaveRoom(code: string): Promise<ActionResult> {
   const room = await loadRoom(code);

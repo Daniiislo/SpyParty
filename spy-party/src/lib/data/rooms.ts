@@ -51,6 +51,8 @@ export interface RoomState {
   currentTurnPlayerId: string | null;
   /** Vote tally by targetId — present from the voting phase onward. */
   tally: Record<string, number> | null;
+  /** Who voted for whom this round (voting phase onward). null target = abstain. */
+  votes: { voterId: string; targetId: string | null }[];
   eliminatedPlayerId: string | null;
   /** In the mrWhiteGuess phase, the eliminated Mr. White who may steal the win. */
   pendingMrWhiteId: string | null;
@@ -60,6 +62,8 @@ export interface RoomState {
   spyWord: string | null;
   /** Absolute deadline (epoch ms) for the current timed phase, or null. */
   deadlineAt: number | null;
+  /** Configured per-turn seconds (so the client shows the full duration). */
+  turnTimerSeconds: number | null;
   /** Server clock (epoch ms) at fetch time, for client countdown skew. */
   serverNow: number;
   me: { playerId: string | null; isHost: boolean; signedIn: boolean };
@@ -236,6 +240,13 @@ export async function getRoomState(code: string): Promise<RoomState | null> {
     allReady: aliveTotal > 0 && aliveReady === aliveTotal,
     currentTurnPlayerId,
     tally,
+    votes:
+      phase === "voting" || phase === "elimination" || atEnd
+        ? votesThisRound.map((v) => ({
+            voterId: v.voterPlayerId,
+            targetId: v.targetPlayerId ?? null,
+          }))
+        : [],
     eliminatedPlayerId:
       phase === "elimination" || phase === "mrWhiteGuess" || atEnd
         ? (eliminatedMp?.playerId ?? null)
@@ -249,6 +260,7 @@ export async function getRoomState(code: string): Promise<RoomState | null> {
       (phase === "describing" || phase === "voting") && match?.deadlineAt
         ? new Date(match.deadlineAt).getTime()
         : null,
+    turnTimerSeconds: room.turnTimerSeconds,
     serverNow: Date.now(),
     me,
   };
