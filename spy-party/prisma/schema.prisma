@@ -5,5 +5,53 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas = ["spy_party"]
+  schemas  = ["spy_party"]
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+
+  @@schema("spy_party")
+}
+
+/// A theme players choose at setup; word pairs belong to a topic. Bilingual
+/// display (VI/EN) so the UI can render in the active locale.
+model Topic {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  nameVi      String
+  nameEn      String
+  emoji       String?
+  isActive    Boolean    @default(true)
+  sortOrder   Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  wordPairs   WordPair[]
+
+  @@index([isActive, sortOrder])
+  @@schema("spy_party")
+}
+
+/// A confusable civilian/spy word pair. Both languages live in one row so a
+/// pair is one semantic unit and the two locales can never drift apart; the
+/// room picks the locale at deal time.
+model WordPair {
+  id             String     @id @default(cuid())
+  topicId        String
+  topic          Topic      @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  slug           String
+  civilianWordVi String
+  spyWordVi      String
+  civilianWordEn String
+  spyWordEn      String
+  difficulty     Difficulty @default(MEDIUM)
+  isActive       Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@unique([topicId, slug])
+  @@index([topicId, isActive])
+  @@schema("spy_party")
 }
