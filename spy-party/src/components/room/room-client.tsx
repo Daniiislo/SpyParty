@@ -15,6 +15,7 @@ import {
   Send,
   Settings,
   ShieldAlert,
+  Trash2,
   Vote,
 } from "lucide-react";
 
@@ -38,6 +39,7 @@ import {
   ackReady,
   advanceIfExpired,
   castVote,
+  disbandRoom,
   fetchMyCard,
   fetchRoomState,
   leaveRoom,
@@ -76,12 +78,22 @@ export function RoomClient({
   const [guess, setGuess] = useState("");
   const [copied, setCopied] = useState(false);
   const [voteOpen, setVoteOpen] = useState(false);
+  const [disbandOpen, setDisbandOpen] = useState(false);
+  const [resultDismissed, setResultDismissed] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   async function refetch() {
     const [s, c] = await Promise.all([fetchRoomState(code), fetchMyCard(code)]);
-    if (s) setState(s);
+    // A null state means the room is gone (host disbanded / expired) — leave.
+    if (!s) {
+      router.push("/");
+      return;
+    }
+    // Once the room moves past the final result (e.g. host starts a new game),
+    // drop any "dismissed" flag so the next match's result shows again.
+    if (s.phase !== "matchEnd") setResultDismissed(false);
+    setState(s);
     setCard(c);
   }
   useRoomChannel(roomId, () => {
@@ -206,6 +218,42 @@ export function RoomClient({
                 {startError && (
                   <p className="text-center text-xs text-destructive">{startError}</p>
                 )}
+                <Dialog open={disbandOpen} onOpenChange={setDisbandOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" className="h-10 gap-2 text-xs text-muted-foreground">
+                      <Trash2 className="size-4" /> {t("disband")}
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>{t("disbandConfirmTitle")}</DialogTitle>
+                      <DialogDescription>{t("disbandConfirmDesc")}</DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="flex-col gap-2 sm:flex-col">
+                      <Button
+                        variant="destructive"
+                        disabled={pending}
+                        className="h-11 w-full gap-2"
+                        onClick={() =>
+                          startTransition(async () => {
+                            setDisbandOpen(false);
+                            await disbandRoom(code);
+                            router.push("/");
+                          })
+                        }
+                      >
+                        <Trash2 className="size-4" /> {t("disbandConfirmAction")}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        className="h-10 w-full text-xs"
+                        onClick={() => setDisbandOpen(false)}
+                      >
+                        {tc("cancel")}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
             ) : (
               <div className="mt-auto flex flex-col items-center gap-3">
@@ -315,6 +363,7 @@ export function RoomClient({
                   <div className="flex justify-center">
                     <TurnTimer
                       deadlineAt={state.deadlineAt}
+                      durationSeconds={state.turnTimerSeconds}
                       onExpire={() => act(() => advanceIfExpired(code))}
                     />
                   </div>
@@ -407,10 +456,60 @@ export function RoomClient({
                         </span>
                       ))}
                     </span>
+                    {p.hasVoted ? (
+                      <span
+                        className="inline-flex shrink-0 items-center gap-1 text-xs text-primary"
+                        title={t("voted")}
+                      >
+                        <Check className="size-3.5" />
+                        <span className="sr-only">{t("voted")}</span>
+                      </span>
+                    ) : (
+                      <span
+                        className="shrink-0 text-xs text-muted-foreground"
+                        title={t("notVotedYet")}
+                      >
+                        …<span className="sr-only">{t("notVotedYet")}</span>
+                      </span>
+                    )}
                   </DossierCard>
                 </li>
               ))}
             </ul>
+            {state.votes.length > 0 && (
+              <div className="rounded-lg border border-border bg-card/50 p-3">
+                <span className="text-classified text-[10px] text-muted-foreground">
+                  {t("voteDetailsTitle")}
+                </span>
+                <ul className="mt-2 flex flex-col gap-1 text-xs">
+                  {state.votes.map((v) => {
+                    const voter =
+                      state.players.find((p) => p.id === v.voterId)?.name ?? "";
+                    const target = v.targetId
+                      ? (state.players.find((p) => p.id === v.targetId)?.name ?? "")
+                      : null;
+                    return (
+                      <li key={v.voterId} className="flex items-center gap-1.5">
+                        <span className="min-w-0 truncate font-medium text-foreground">
+                          {voter}
+                        </span>
+                        <ArrowRight className="size-3 shrink-0 text-muted-foreground" />
+                        <span
+                          className={cn(
+                            "min-w-0 truncate",
+                            target
+                              ? "text-destructive"
+                              : "italic text-muted-foreground",
+                          )}
+                        >
+                          {target ?? t("abstained")}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
             <div className="mt-auto">
               {mePlayer && !mePlayer.hasVoted ? (
                 <Dialog open={voteOpen} onOpenChange={setVoteOpen}>
@@ -541,7 +640,45 @@ export function RoomClient({
         )}
 
         {/* ── Result ── */}
-        {(state.phase === "elimination" || state.phase === "matchEnd") && (
+        {(state.phase === "elimination" || state.phase === "matchEnd") &&
+          (!isHost && resultDismissed && state.phase === "matchEnd" ? (
+            /* Guest chose to stay: a calm waiting-in-room view until the host acts. */
+            <div className="flex flex-1 flex-col gap-6">
+              <PhaseBanner eyebrow={t("lobbyTitle")} title="SPY PARTY" />
+              <ul className="flex flex-col gap-2">
+                {state.players.map((p) => (
+                  <li key={p.id}>
+                    <DossierCard
+                      tone={p.id === meId ? "amber" : "neutral"}
+                      className="flex items-center gap-3 p-3"
+                    >
+                      <span className="min-w-0 flex-1 truncate font-medium">
+                        {p.name}
+                        {p.id === meId ? ` (${tc("you")})` : ""}
+                      </span>
+                      {p.isHost && (
+                        <span className="inline-flex items-center gap-1 text-xs text-primary">
+                          <Crown className="size-3.5" /> {t("host")}
+                        </span>
+                      )}
+                    </DossierCard>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-auto flex flex-col items-center gap-3">
+                <p className="text-classified animate-glow-pulse rounded-full border border-border px-4 py-2 text-[11px] text-muted-foreground">
+                  {t("stayHint")}
+                </p>
+                <Button
+                  variant="ghost"
+                  className="h-10 gap-2 text-xs"
+                  onClick={() => router.push("/")}
+                >
+                  <Home className="size-4" /> {t("backHome")}
+                </Button>
+              </div>
+            </div>
+          ) : (
           <div className="flex flex-1 flex-col justify-center gap-6 text-center">
             <div
               className={cn(
@@ -625,6 +762,15 @@ export function RoomClient({
                   <RotateCcw className="size-4" /> {t("playAgain")}
                 </Button>
               )}
+              {!isHost && state.phase === "matchEnd" && (
+                <Button
+                  variant="secondary"
+                  onClick={() => setResultDismissed(true)}
+                  className="h-12 w-full gap-2 text-sm font-semibold sm:w-auto sm:px-6"
+                >
+                  <RotateCcw className="size-4" /> {t("returnToRoom")}
+                </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={() => router.push("/")}
@@ -634,7 +780,7 @@ export function RoomClient({
               </Button>
             </div>
           </div>
-        )}
+          ))}
       </div>
     </main>
   );

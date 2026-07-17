@@ -250,7 +250,15 @@
     "settings": "Cài đặt",
     "save": "Lưu",
     "maxPlayersLabel": "Số người tối đa",
-    "stayHint": "Ở lại phòng — chủ phòng có thể bắt đầu ván mới."
+    "stayHint": "Ở lại phòng — chủ phòng có thể bắt đầu ván mới.",
+    "disband": "Giải tán phòng",
+    "disbandConfirmTitle": "Giải tán phòng này?",
+    "disbandConfirmDesc": "Tất cả người chơi sẽ bị đưa ra khỏi phòng và phòng sẽ bị xóa vĩnh viễn. Không thể hoàn tác.",
+    "disbandConfirmAction": "Giải tán",
+    "returnToRoom": "Trở lại phòng",
+    "voteDetailsTitle": "Ai đã bỏ phiếu cho ai",
+    "notVotedYet": "Chưa bỏ phiếu",
+    "abstained": "Bỏ qua"
   },
   "leaderboard": {
     "eyebrow": "Đặc vụ hàng đầu",
