@@ -148,6 +148,19 @@ export function RoomClient({
   const isHost = state.me.isHost;
   const mePlayer = meId ? state.players.find((p) => p.id === meId) : null;
 
+  // Going Home: a non-host guest leaves the room first (so they drop off the
+  // host's roster once the match is over); the host just navigates.
+  function goHome() {
+    if (isHost) {
+      router.push("/");
+      return;
+    }
+    startTransition(async () => {
+      await leaveRoom(code);
+      router.push("/");
+    });
+  }
+
   // Someone opened the room without joining (no cookie / not the host).
   if (!meId) {
     return (
@@ -740,7 +753,7 @@ export function RoomClient({
                 <Button
                   variant="ghost"
                   className="h-10 gap-2 text-xs"
-                  onClick={() => router.push("/")}
+                  onClick={goHome}
                 >
                   <Home className="size-4" /> {t("backHome")}
                 </Button>
@@ -836,7 +849,7 @@ export function RoomClient({
               )}
               <Button
                 variant="outline"
-                onClick={() => router.push("/")}
+                onClick={goHome}
                 className="h-12 w-full gap-2 text-sm font-semibold sm:w-auto sm:px-6"
               >
                 <Home className="size-4" /> {t("backHome")}
