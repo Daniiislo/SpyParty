@@ -53,7 +53,9 @@ Technical details live in [CLAUDE.md](../CLAUDE.md). In short:
 ## 6. Game flow (rounds / turns)
 
 1. **Deal words** → each player views their own secret word (with a reveal
-   animation).
+   animation). **Viewing (decoding) your word marks you ready** — there is no
+   separate "memorized" confirmation; the host starts once everyone has viewed
+   (online: start describing; offline: reveal roles).
 2. **Describe in turns** → players take turns giving ONE descriptive word/phrase
    for their own word (without saying the word directly).
 3. After a full describe round → everyone **votes** for the suspected spy.
@@ -84,6 +86,10 @@ Play continues round by round until one side wins:
   seeded; a small in-repo bank bootstraps the offline MVP before the schema lands.
 - **Mr. White**, **per-turn timer**, **multi-round**, and **leaderboard/history**:
   all **in v1**.
+- **Blind mode is the default (v1.1.1):** each player's role (spy vs civilian) is
+  hidden until match end; the host can opt into **revealing roles** ("Hiện vai
+  trò"). Blind mode and Mr. White are mutually exclusive — Mr. White is only
+  selectable once roles are revealed.
 - **Tie-break:** sudden-death revote → no elimination if still tied.
 - **Identity:** host is a signed-in Clerk user; participants join by name + room code
   (guest, no account).
