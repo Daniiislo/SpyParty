@@ -247,7 +247,7 @@ export function RoomClient({
             />
 
             {isHost ? (
-              <div className="mt-auto flex flex-col gap-2">
+              <div className="flex flex-col gap-2">
                 <Button
                   onClick={() =>
                     startTransition(async () => {
@@ -317,7 +317,7 @@ export function RoomClient({
                 </Dialog>
               </div>
             ) : (
-              <div className="mt-auto flex flex-col items-center gap-3">
+              <div className="flex flex-col items-center gap-3">
                 <p className="text-classified animate-glow-pulse rounded-full border border-border px-4 py-2 text-[11px] text-muted-foreground">
                   {t("waitingHost")}
                 </p>
@@ -468,7 +468,7 @@ export function RoomClient({
                   ))}
                 </ul>
                 {myTurn && (
-                  <div className="mt-auto flex gap-2">
+                  <div className="flex gap-2">
                     <Input
                       value={clueText}
                       onChange={(e) => setClueText(e.target.value)}
@@ -594,7 +594,7 @@ export function RoomClient({
                 </ul>
               </div>
             )}
-            <div className="mt-auto">
+            <div>
               {mePlayer && !mePlayer.hasVoted ? (
                 <Dialog open={voteOpen} onOpenChange={setVoteOpen}>
                   <DialogTrigger asChild>
@@ -749,7 +749,7 @@ export function RoomClient({
                   </li>
                 ))}
               </ul>
-              <div className="mt-auto flex flex-col items-center gap-3">
+              <div className="flex flex-col items-center gap-3">
                 <Button
                   variant="ghost"
                   className="h-10 gap-2 text-xs"
