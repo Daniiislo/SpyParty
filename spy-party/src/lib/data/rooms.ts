@@ -126,12 +126,11 @@ export async function loadRoom(code: string) {
 
 type LoadedRoom = NonNullable<Awaited<ReturnType<typeof loadRoom>>>;
 
+/** The resolved identity of whoever is calling within a room. */
+export type Caller = { playerId: string | null; isHost: boolean; signedIn: boolean };
+
 /** Resolve who the caller is within a room (host via Clerk, or guest cookie). */
-export async function resolveCaller(room: LoadedRoom): Promise<{
-  playerId: string | null;
-  isHost: boolean;
-  signedIn: boolean;
-}> {
+export async function resolveCaller(room: LoadedRoom): Promise<Caller> {
   const { userId } = await auth();
   if (userId) {
     const hostPlayer = room.players.find((p) => p.userId === userId);
@@ -146,12 +145,8 @@ export async function resolveCaller(room: LoadedRoom): Promise<{
   return { playerId: null, isHost: false, signedIn: !!userId };
 }
 
-/** Build the secret-free public state for a room (or `null` if it doesn't exist). */
-export async function getRoomState(code: string): Promise<RoomState | null> {
-  const room = await loadRoom(code);
-  if (!room) return null;
-
-  const me = await resolveCaller(room);
+/** Build the secret-free public state from an already-loaded room + resolved caller. */
+export function buildRoomState(room: LoadedRoom, me: Caller): RoomState {
   const match = room.matches[0] ?? null;
   const round = match?.roundNumber ?? 1;
 
@@ -277,11 +272,15 @@ export async function getRoomState(code: string): Promise<RoomState | null> {
   };
 }
 
-/** The caller's own dealt card (role + word). Never returns other players' words. */
-export async function getMyCard(code: string): Promise<MyCard | null> {
+/** Build the secret-free public state for a room (or `null` if it doesn't exist). */
+export async function getRoomState(code: string): Promise<RoomState | null> {
   const room = await loadRoom(code);
   if (!room) return null;
-  const me = await resolveCaller(room);
+  return buildRoomState(room, await resolveCaller(room));
+}
+
+/** Build the caller's own card from an already-loaded room + resolved caller. */
+export function buildMyCard(room: LoadedRoom, me: Caller): MyCard | null {
   if (!me.playerId) return null;
   const match = room.matches[0];
   if (!match) return null;
@@ -295,6 +294,31 @@ export async function getMyCard(code: string): Promise<MyCard | null> {
     word: mp.word,
     blind,
   };
+}
+
+/** The caller's own dealt card (role + word). Never returns other players' words. */
+export async function getMyCard(code: string): Promise<MyCard | null> {
+  const room = await loadRoom(code);
+  if (!room) return null;
+  return buildMyCard(room, await resolveCaller(room));
+}
+
+/** Public state + the caller's own card, sharing a single room load + auth. */
+export interface RoomView {
+  state: RoomState;
+  card: MyCard | null;
+}
+
+/**
+ * Load a room once and build both the public state and the caller's card. Halves
+ * the DB query + Clerk auth cost versus calling {@link getRoomState} and
+ * {@link getMyCard} separately, which each re-run `loadRoom` + `resolveCaller`.
+ */
+export async function getRoomView(code: string): Promise<RoomView | null> {
+  const room = await loadRoom(code);
+  if (!room) return null;
+  const me = await resolveCaller(room);
+  return { state: buildRoomState(room, me), card: buildMyCard(room, me) };
 }
 
 export interface RoomConfig {

@@ -3,6 +3,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma/client";
 import {
   clearGuestCookie,
   readGuestPlayerId,
@@ -13,10 +14,12 @@ import {
   generateCode,
   getMyCard,
   getRoomState,
+  getRoomView,
   loadRoom,
   resolveCaller,
   type MyCard,
   type RoomState,
+  type RoomView,
 } from "@/lib/data/rooms";
 import { getOfflinePair } from "@/lib/data/word-bank";
 import {
@@ -39,7 +42,20 @@ import {
 
 const MAX_PLAYERS = 12;
 
-type ActionResult = { ok: true; code?: string } | { error: string };
+type ActionResult =
+  | { ok: true; code?: string; view?: RoomView }
+  | { error: string };
+
+/**
+ * Success result carrying the fresh post-mutation view, so the acting client
+ * updates in a single round-trip instead of firing a second `refetch()`. Other
+ * clients still reconcile via the broadcast poke. Falls back to a plain `ok`
+ * when the room vanished (deleted) — the client then refetches and leaves.
+ */
+async function okWithView(code: string): Promise<ActionResult> {
+  const view = await getRoomView(code);
+  return { ok: true, view: view ?? undefined };
+}
 
 function isUniqueViolation(e: unknown): boolean {
   return (
@@ -122,32 +138,40 @@ async function persistMatchResult(matchId: string, winner: Side) {
     status: mp.status === "ALIVE" ? "alive" : "eliminated",
   }));
   const scores = scoreMatch(players, winner);
+  // One batched transaction instead of up to 2N serial round-trips, so the
+  // match-end reveal isn't gated on a long sequential write loop.
+  const ops: Prisma.PrismaPromise<unknown>[] = [];
   for (const mp of match.matchPlayers) {
     const sc = scores[mp.playerId] ?? { points: 0, isWinner: false };
-    await prisma.matchPlayer.update({
-      where: { id: mp.id },
-      data: { pointsAwarded: sc.points, isWinner: sc.isWinner },
-    });
+    ops.push(
+      prisma.matchPlayer.update({
+        where: { id: mp.id },
+        data: { pointsAwarded: sc.points, isWinner: sc.isWinner },
+      }),
+    );
     const uid = mp.player.userId;
     if (uid) {
-      await prisma.leaderboardStat.upsert({
-        where: { clerkUserId: uid },
-        create: {
-          clerkUserId: uid,
-          displayName: mp.player.displayName,
-          gamesPlayed: 1,
-          gamesWon: sc.isWinner ? 1 : 0,
-          totalPoints: sc.points,
-        },
-        update: {
-          displayName: mp.player.displayName,
-          gamesPlayed: { increment: 1 },
-          gamesWon: { increment: sc.isWinner ? 1 : 0 },
-          totalPoints: { increment: sc.points },
-        },
-      });
+      ops.push(
+        prisma.leaderboardStat.upsert({
+          where: { clerkUserId: uid },
+          create: {
+            clerkUserId: uid,
+            displayName: mp.player.displayName,
+            gamesPlayed: 1,
+            gamesWon: sc.isWinner ? 1 : 0,
+            totalPoints: sc.points,
+          },
+          update: {
+            displayName: mp.player.displayName,
+            gamesPlayed: { increment: 1 },
+            gamesWon: { increment: sc.isWinner ? 1 : 0 },
+            totalPoints: { increment: sc.points },
+          },
+        }),
+      );
     }
   }
+  if (ops.length) await prisma.$transaction(ops);
 }
 
 /** A server-authoritative phase deadline, or null when the room is untimed. */
@@ -270,11 +294,18 @@ async function submitClueAndAdvance(
 }
 
 /** Tally the round's votes, eliminate, and route to Mr. White / next round / end. */
-async function resolveVotingRound(room: LoadedRoom, match: LoadedMatch) {
+async function resolveVotingRound(
+  room: LoadedRoom,
+  match: LoadedMatch,
+  preloadedVotes?: { voterPlayerId: string; targetPlayerId: string | null }[],
+) {
   const state = toGameState(room, match);
-  const votes = await prisma.vote.findMany({
-    where: { matchId: match.id, roundNumber: match.roundNumber },
-  });
+  // Reuse the caller's vote scan when it already fetched them (castVote), else load.
+  const votes =
+    preloadedVotes ??
+    (await prisma.vote.findMany({
+      where: { matchId: match.id, roundNumber: match.roundNumber },
+    }));
   const voteMap: Record<string, string | null> = {};
   for (const v of votes) voteMap[v.voterPlayerId] = v.targetPlayerId ?? null;
   const { eliminatedId } = resolveVote(tallyVotes(voteMap, state));
@@ -463,7 +494,7 @@ export async function startMatch(code: string): Promise<ActionResult> {
     }),
   ]);
   await broadcastRoom(room.id);
-  return { ok: true };
+  return okWithView(code);
 }
 
 /** A player acknowledges they've seen their word (gates the start of describing). */
@@ -479,7 +510,7 @@ export async function ackReady(code: string): Promise<ActionResult> {
     data: { ready: true },
   });
   await broadcastRoom(room.id);
-  return { ok: true };
+  return okWithView(code);
 }
 
 /** Host starts the describe phase (turn order + first turn's timer). */
@@ -501,7 +532,7 @@ export async function startDescribing(code: string): Promise<ActionResult> {
     },
   });
   await broadcastRoom(room.id);
-  return { ok: true };
+  return okWithView(code);
 }
 
 /** Offline host reveals all roles + words, ending the deal-only match. */
@@ -526,7 +557,7 @@ export async function revealRoles(code: string): Promise<ActionResult> {
     prisma.room.update({ where: { id: room.id }, data: { status: "COMPLETED" } }),
   ]);
   await broadcastRoom(room.id);
-  return { ok: true };
+  return okWithView(code);
 }
 
 /** Submit the clue for the current turn (turn-enforced); advances the turn. */
@@ -543,7 +574,7 @@ export async function submitClue(code: string, text: string): Promise<ActionResu
 
   await submitClueAndAdvance(room, match, me.playerId, clue);
   await broadcastRoom(room.id);
-  return { ok: true };
+  return okWithView(code);
 }
 
 /** Cast/replace this round's vote; resolves the round when all alive have voted. */
@@ -586,10 +617,10 @@ export async function castVote(
     where: { matchId: match.id, roundNumber: match.roundNumber },
   });
   if (votes.length >= aliveCount) {
-    await resolveVotingRound(room, match);
+    await resolveVotingRound(room, match, votes);
   }
   await broadcastRoom(room.id);
-  return { ok: true };
+  return okWithView(code);
 }
 
 /** The eliminated Mr. White guesses the civilian word to steal the win. */
@@ -623,7 +654,7 @@ export async function mrWhiteGuess(code: string, guess: string): Promise<ActionR
     await endOrNextRound(room, match, state, evaluateOutcome(state));
   }
   await broadcastRoom(room.id);
-  return { ok: true };
+  return okWithView(code);
 }
 
 /** Client watchdog: advance a timed phase whose server-side deadline has passed. */
@@ -639,6 +670,7 @@ export async function advanceIfExpired(code: string): Promise<ActionResult> {
   if (match.phase === "DESCRIBING" && match.currentTurnPlayerId) {
     await submitClueAndAdvance(room, match, match.currentTurnPlayerId, "—");
     await broadcastRoom(room.id);
+    return okWithView(code);
   }
   return { ok: true };
 }
@@ -656,7 +688,7 @@ export async function resolveVotingIfExpired(code: string): Promise<ActionResult
   if (Date.now() < new Date(match.deadlineAt).getTime()) return { ok: true };
   await resolveVotingRound(room, match);
   await broadcastRoom(room.id);
-  return { ok: true };
+  return okWithView(code);
 }
 
 /** Host edits room settings while in the lobby. */
@@ -705,7 +737,7 @@ export async function updateSettings(
     },
   });
   await broadcastRoom(room.id);
-  return { ok: true };
+  return okWithView(code);
 }
 
 /** Host resets the room to the lobby for a rematch. */
@@ -716,7 +748,7 @@ export async function playAgain(code: string): Promise<ActionResult> {
   if (!userId || room.hostUserId !== userId) return { error: "forbidden" };
   await prisma.room.update({ where: { id: room.id }, data: { status: "LOBBY" } });
   await broadcastRoom(room.id);
-  return { ok: true };
+  return okWithView(code);
 }
 
 /** Client-callable read: the room's secret-free public state. */
@@ -727,6 +759,11 @@ export async function fetchRoomState(code: string): Promise<RoomState | null> {
 /** Client-callable read: the caller's own dealt card (never other players'). */
 export async function fetchMyCard(code: string): Promise<MyCard | null> {
   return getMyCard(code);
+}
+
+/** Client-callable read: public state + the caller's card, sharing one room load. */
+export async function fetchRoomView(code: string): Promise<RoomView | null> {
+  return getRoomView(code);
 }
 
 /** The host disbands (permanently deletes) the room. Cascades to players/matches. */

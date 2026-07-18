@@ -182,7 +182,9 @@ model Match {
   clues        Clue[]
   votes        Vote[]
 
-  @@index([roomId])
+  // The hot read (`loadRoom`) selects the latest match: where roomId, order by
+  // createdAt desc, take 1. A composite index serves both the filter and sort.
+  @@index([roomId, createdAt])
   @@schema("spy_party")
 }
 
