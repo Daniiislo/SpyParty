@@ -40,8 +40,7 @@ import {
   advanceIfExpired,
   castVote,
   disbandRoom,
-  fetchMyCard,
-  fetchRoomState,
+  fetchRoomView,
   leaveRoom,
   mrWhiteGuess,
   playAgain,
@@ -90,9 +89,9 @@ export function RoomClient({
   const [startError, setStartError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  async function refetch() {
-    const [s, c] = await Promise.all([fetchRoomState(code), fetchMyCard(code)]);
-    // A null state means the room is gone (host disbanded / expired) — leave.
+  // Apply a fresh (state, card) snapshot — from a mutation's returned view or a
+  // refetch. A null state means the room is gone (disbanded / expired) → leave.
+  function applyView(s: RoomState | null, c: MyCard | null) {
     if (!s) {
       router.push("/");
       return;
@@ -105,14 +104,31 @@ export function RoomClient({
     setState(s);
     setCard(c);
   }
+
+  async function refetch() {
+    const view = await fetchRoomView(code);
+    applyView(view?.state ?? null, view?.card ?? null);
+  }
   useRoomChannel(roomId, () => {
     void refetch();
   });
 
+  // Run a mutation. Hot mutations return the post-mutation `view`, so the acting
+  // client updates in a single round-trip; otherwise we fall back to a refetch.
   function act(fn: () => Promise<unknown>) {
     startTransition(async () => {
-      await fn();
-      await refetch();
+      const res = await fn();
+      if (
+        res &&
+        typeof res === "object" &&
+        "view" in res &&
+        (res as { view?: { state: RoomState; card: MyCard | null } }).view
+      ) {
+        const v = (res as { view: { state: RoomState; card: MyCard | null } }).view;
+        applyView(v.state, v.card);
+      } else {
+        await refetch();
+      }
     });
   }
 
@@ -225,6 +241,8 @@ export function RoomClient({
                             ? t("errNotEnoughPlayers")
                             : t("errGeneric"),
                         );
+                      } else if (r.view) {
+                        applyView(r.view.state, r.view.card);
                       } else {
                         await refetch();
                       }
@@ -289,7 +307,8 @@ export function RoomClient({
                   variant="ghost"
                   className="h-10 gap-2 text-xs"
                   onClick={() =>
-                    act(async () => {
+                    // Navigates away — no view to apply, so skip act()'s refetch.
+                    startTransition(async () => {
                       await leaveRoom(code);
                       router.push("/");
                     })
@@ -311,7 +330,9 @@ export function RoomClient({
               title="SPY PARTY"
               description={state.mode === "offline" ? t("offlinePlaying") : undefined}
             />
-            {card && !mePlayer?.ready && (
+            {card && (
+              // Stays mounted through dealing so the word remains readable after
+              // decoding; decoding is what marks the player ready (onDone).
               <DossierReveal
                 mode="reveal"
                 role={card.role ?? undefined}
@@ -343,13 +364,20 @@ export function RoomClient({
             </ul>
             {state.mode === "offline" ? (
               isHost ? (
-                <Button
-                  onClick={() => act(() => revealRoles(code))}
-                  disabled={pending}
-                  className="mt-2 h-12 w-full gap-2 text-sm font-semibold"
-                >
-                  <Eye className="size-4" /> {t("revealRoles")}
-                </Button>
+                <div className="mt-2 flex flex-col gap-2">
+                  <Button
+                    onClick={() => act(() => revealRoles(code))}
+                    disabled={pending || !state.allReady}
+                    className="h-12 w-full gap-2 text-sm font-semibold"
+                  >
+                    <Eye className="size-4" /> {t("revealRoles")}
+                  </Button>
+                  {!state.allReady && (
+                    <p className="text-classified text-center text-[11px] text-muted-foreground">
+                      {t("waitingReady")}
+                    </p>
+                  )}
+                </div>
               ) : (
                 <p className="text-classified mt-2 text-center text-[11px] text-muted-foreground">
                   {t("waitingReady")}
@@ -429,8 +457,9 @@ export function RoomClient({
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !pending && clueText.trim()) {
                           act(async () => {
-                            await submitClue(code, clueText);
+                            const r = await submitClue(code, clueText);
                             setClueText("");
+                            return r;
                           });
                         }
                       }}
@@ -442,8 +471,9 @@ export function RoomClient({
                     <Button
                       onClick={() =>
                         act(async () => {
-                          await submitClue(code, clueText);
+                          const r = await submitClue(code, clueText);
                           setClueText("");
+                          return r;
                         })
                       }
                       disabled={pending || !clueText.trim()}

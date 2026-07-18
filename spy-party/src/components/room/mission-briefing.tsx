@@ -21,8 +21,9 @@ export function MissionBriefing({ onDone }: { onDone: () => void }) {
   }, [onDone]);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setLeaving(true), 2200);
-    const t2 = setTimeout(() => cb.current(), 2800);
+    // Short cinematic beat, then a quick fade so play starts promptly.
+    const t1 = setTimeout(() => setLeaving(true), 700);
+    const t2 = setTimeout(() => cb.current(), 1200);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
@@ -35,8 +36,11 @@ export function MissionBriefing({ onDone }: { onDone: () => void }) {
       onClick={() => cb.current()}
       aria-label={t("briefingHint")}
       className={cn(
-        "bg-blueprint fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 overflow-hidden px-6 text-center transition-opacity duration-500",
-        leaving ? "opacity-0" : "opacity-100",
+        // Its own layer above header/overlay/dialog (z-50). While fading out it
+        // must stop capturing pointer events — an opacity-0 element still
+        // swallows taps meant for the game UI beneath it.
+        "bg-blueprint fixed inset-0 z-[60] flex flex-col items-center justify-center gap-6 overflow-hidden px-6 text-center transition-opacity duration-500",
+        leaving ? "pointer-events-none opacity-0" : "opacity-100",
       )}
     >
       <div className="glow-hero pointer-events-none absolute inset-0" aria-hidden />

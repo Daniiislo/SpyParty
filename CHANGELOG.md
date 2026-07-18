@@ -5,6 +5,36 @@ All notable changes to **Spy Party** (*Ai Là Gián Điệp*) are documented her
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] — 2026-07-18
+
+UX simplification and performance fixes.
+
+### Changed
+- **Blind mode is now the default.** Each player's role (spy vs civilian) is
+  hidden until match end; revealing roles is an opt-in **"Hiện vai trò"** switch
+  in the create form and lobby config. Mr. White is only selectable once roles
+  are revealed (still mutually exclusive with blind).
+- **Simpler deal flow.** Viewing (decoding) your word now marks you ready — the
+  separate "Tôi đã nhớ rồi" confirmation step was removed. The host starts once
+  everyone has viewed, for both online (start describing) and offline (reveal
+  roles); both transitions are now also enforced server-side.
+
+### Fixed
+- The mission-briefing intro no longer covers or blocks the game UI: it stops
+  capturing taps while fading out, sits on its own layer, and is shorter (~1.2s).
+- The "Đang tải…" action overlay no longer lingers after the background is
+  already visible — a short show-delay skips it for fast actions and it clears
+  the instant the action resolves.
+
+### Performance
+- Every room action is now a single server round-trip instead of two: mutations
+  return the fresh post-mutation view, which the acting client applies directly
+  (other clients still reconcile via the realtime broadcast).
+- Reads share one room load + one Clerk auth (`getRoomView`) instead of
+  duplicating the heavy query and auth per refetch; the room page loads its data
+  in parallel; a composite `(roomId, createdAt)` index serves the latest-match
+  read; and match-end scoring writes are batched into one transaction.
+
 ## [1.1.0] — 2026-07-17
 
 Gameplay and UX refinements on top of the first release.
@@ -104,5 +134,6 @@ word game playable end-to-end in both offline and online modes.
   `dev`/`main`.
 - Deployed on Vercel (`spy-party-vn`); `main` auto-deploys production.
 
+[1.1.1]: https://github.com/Daniiislo/SpyParty/releases/tag/v1.1.1
 [1.1.0]: https://github.com/Daniiislo/SpyParty/releases/tag/v1.1.0
 [1.0.0]: https://github.com/Daniiislo/SpyParty/releases/tag/v1.0.0

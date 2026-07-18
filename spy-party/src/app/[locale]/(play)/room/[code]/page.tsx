@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
 
-import { getMyCard, getRoomState } from "@/lib/data/rooms";
+import { getRoomView } from "@/lib/data/rooms";
 import { getOfflineTopics } from "@/lib/data/word-bank";
 import type { BankLocale } from "@/lib/game/word-bank";
 import { RoomClient } from "@/components/room/room-client";
@@ -14,18 +14,21 @@ export default async function RoomPage({
   const { locale, code } = await params;
   setRequestLocale(locale);
 
-  const state = await getRoomState(code);
-  if (!state) notFound();
-  const card = await getMyCard(code);
   const bankLocale: BankLocale = locale === "en" ? "en" : "vi";
-  const topics = await getOfflineTopics(bankLocale);
+  // Load the room view (one query + one auth for both state & card) and topics
+  // in parallel instead of three sequential awaits behind the loading screen.
+  const [view, topics] = await Promise.all([
+    getRoomView(code),
+    getOfflineTopics(bankLocale),
+  ]);
+  if (!view) notFound();
 
   return (
     <RoomClient
-      code={state.code}
-      roomId={state.roomId}
-      initialState={state}
-      initialCard={card}
+      code={view.state.code}
+      roomId={view.state.roomId}
+      initialState={view.state}
+      initialCard={view.card}
       topics={topics}
     />
   );

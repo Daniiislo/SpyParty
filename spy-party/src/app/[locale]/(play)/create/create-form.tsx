@@ -40,7 +40,8 @@ export function CreateRoomForm({
   const [hostName, setHostName] = useState("");
   const [spyCount, setSpyCount] = useState(1);
   const [mrWhite, setMrWhite] = useState(false);
-  const [blindMode, setBlindMode] = useState(false);
+  // Roles are hidden by default (blind mode). Revealing them is the opt-in.
+  const [revealRole, setRevealRole] = useState(false);
   const [conflictOpen, setConflictOpen] = useState(false);
   const [turnTimer, setTurnTimer] = useState<number | null>(null);
   const [describeRounds, setDescribeRounds] = useState(2);
@@ -48,11 +49,11 @@ export function CreateRoomForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  // Blind mode and Mr. White are mutually exclusive; enabling blind mode turns
-  // Mr. White off and explains why via a popup.
-  function toggleBlind(on: boolean) {
-    setBlindMode(on);
-    if (on && mrWhite) {
+  // Blind mode (roles hidden) and Mr. White are mutually exclusive — Mr. White
+  // needs roles revealed. Turning reveal off disables Mr. White and explains why.
+  function toggleReveal(on: boolean) {
+    setRevealRole(on);
+    if (!on && mrWhite) {
       setMrWhite(false);
       setConflictOpen(true);
     }
@@ -67,8 +68,8 @@ export function CreateRoomForm({
         topicSlug,
         locale,
         hostName,
-        mrWhiteCount: mrWhite && !blindMode ? 1 : 0,
-        blindMode,
+        mrWhiteCount: mrWhite && revealRole ? 1 : 0,
+        blindMode: !revealRole,
         turnTimerSeconds: turnTimer,
         describeRounds,
       });
@@ -166,15 +167,15 @@ export function CreateRoomForm({
           <Label
             className={cn(
               "text-classified text-[11px] text-muted-foreground",
-              blindMode && "opacity-50",
+              !revealRole && "opacity-50",
             )}
           >
             {t("mrWhiteLabel")}
           </Label>
           <Switch
-            checked={mrWhite && !blindMode}
+            checked={mrWhite && revealRole}
             onCheckedChange={setMrWhite}
-            disabled={blindMode}
+            disabled={!revealRole}
             aria-label={t("mrWhiteLabel")}
           />
         </section>
@@ -182,14 +183,14 @@ export function CreateRoomForm({
         <section className="mt-8 flex items-start justify-between gap-4">
           <div className="min-w-0">
             <Label className="text-classified text-[11px] text-muted-foreground">
-              {t("blindModeLabel")}
+              {t("revealRoleLabel")}
             </Label>
-            <p className="mt-1 text-xs text-muted-foreground">{t("blindModeDesc")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t("revealRoleDesc")}</p>
           </div>
           <Switch
-            checked={blindMode}
-            onCheckedChange={toggleBlind}
-            aria-label={t("blindModeLabel")}
+            checked={revealRole}
+            onCheckedChange={toggleReveal}
+            aria-label={t("revealRoleLabel")}
           />
         </section>
 

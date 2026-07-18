@@ -122,7 +122,7 @@ model Room {
   topicSlug        String?
   spyCount         Int        @default(1)
   mrWhiteCount     Int        @default(0)
-  blindMode        Boolean    @default(false)
+  blindMode        Boolean    @default(true)
   turnTimerSeconds Int?
   describeRounds   Int        @default(2)
   maxPlayers       Int        @default(10)
@@ -182,7 +182,9 @@ model Match {
   clues        Clue[]
   votes        Vote[]
 
-  @@index([roomId])
+  // The hot read (`loadRoom`) selects the latest match: where roomId, order by
+  // createdAt desc, take 1. A composite index serves both the filter and sort.
+  @@index([roomId, createdAt])
   @@schema("spy_party")
 }
 

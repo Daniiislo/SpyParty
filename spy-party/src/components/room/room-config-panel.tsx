@@ -80,7 +80,8 @@ export function RoomConfigPanel({
   // Host-editable local state (seeded once). Guests render `config` live.
   const [spyCount, setSpyCount] = useState(config.spyCount);
   const [mrWhite, setMrWhite] = useState(config.mrWhiteCount > 0);
-  const [blindMode, setBlindMode] = useState(config.blindMode);
+  // Roles hidden by default (blind); revealing them is the opt-in toggle.
+  const [revealRole, setRevealRole] = useState(!config.blindMode);
   const [turnTimer, setTurnTimer] = useState<number | null>(config.turnTimerSeconds);
   const [describeRounds, setDescribeRounds] = useState(config.describeRounds);
   const [maxPlayers, setMaxPlayers] = useState(config.maxPlayers);
@@ -95,8 +96,8 @@ export function RoomConfigPanel({
       await updateSettings(code, {
         topicSlug,
         spyCount,
-        mrWhiteCount: mrWhite && !blindMode ? 1 : 0,
-        blindMode,
+        mrWhiteCount: mrWhite && revealRole ? 1 : 0,
+        blindMode: !revealRole,
         turnTimerSeconds: turnTimer,
         describeRounds,
         maxPlayers,
@@ -124,8 +125,8 @@ export function RoomConfigPanel({
           <Row label={t("mrWhiteLabel")}>
             <BoolMark on={config.mrWhiteCount > 0} />
           </Row>
-          <Row label={t("blindModeLabel")}>
-            <BoolMark on={config.blindMode} />
+          <Row label={t("revealRoleLabel")}>
+            <BoolMark on={!config.blindMode} />
           </Row>
           {online && (
             <>
@@ -178,27 +179,27 @@ export function RoomConfigPanel({
         </Row>
         <Row label={t("mrWhiteLabel")}>
           <Switch
-            checked={mrWhite && !blindMode}
-            disabled={blindMode}
+            checked={mrWhite && revealRole}
+            disabled={!revealRole}
             onCheckedChange={(v) => {
               setMrWhite(v);
-              save({ mrWhiteCount: v && !blindMode ? 1 : 0 });
+              save({ mrWhiteCount: v && revealRole ? 1 : 0 });
             }}
             aria-label={t("mrWhiteLabel")}
           />
         </Row>
-        <Row label={t("blindModeLabel")}>
+        <Row label={t("revealRoleLabel")}>
           <Switch
-            checked={blindMode}
+            checked={revealRole}
             onCheckedChange={(v) => {
-              setBlindMode(v);
-              if (v && mrWhite) {
+              setRevealRole(v);
+              if (!v && mrWhite) {
                 setMrWhite(false);
                 setConflictOpen(true);
               }
-              save({ blindMode: v, mrWhiteCount: v ? 0 : mrWhite ? 1 : 0 });
+              save({ blindMode: !v, mrWhiteCount: v && mrWhite ? 1 : 0 });
             }}
-            aria-label={t("blindModeLabel")}
+            aria-label={t("revealRoleLabel")}
           />
         </Row>
         {online && (
