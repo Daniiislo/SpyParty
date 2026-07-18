@@ -385,7 +385,7 @@ export function RoomClient({
                 </div>
               ) : (
                 <p className="text-classified mt-2 text-center text-[11px] text-muted-foreground">
-                  {t("waitingReady")}
+                  {state.allReady ? t("everyoneReady") : t("waitingReady")}
                 </p>
               )
             ) : (
@@ -400,7 +400,7 @@ export function RoomClient({
                 </Button>
               ) : (
                 <p className="text-classified mt-2 text-center text-[11px] text-muted-foreground">
-                  {t("waitingReady")}
+                  {state.allReady ? t("everyoneReady") : t("waitingReady")}
                 </p>
               ))
             )}
@@ -737,9 +737,6 @@ export function RoomClient({
                 ))}
               </ul>
               <div className="mt-auto flex flex-col items-center gap-3">
-                <p className="text-classified animate-glow-pulse rounded-full border border-border px-4 py-2 text-[11px] text-muted-foreground">
-                  {t("stayHint")}
-                </p>
                 <Button
                   variant="ghost"
                   className="h-10 gap-2 text-xs"
@@ -818,11 +815,6 @@ export function RoomClient({
                 ))}
               </ul>
             </div>
-            {!isHost && (
-              <p className="text-classified text-center text-[11px] text-muted-foreground">
-                {t("stayHint")}
-              </p>
-            )}
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
               {isHost && (
                 <Button

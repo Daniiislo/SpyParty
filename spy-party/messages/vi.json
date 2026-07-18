@@ -86,7 +86,6 @@
     "switch": "Đổi góc nhìn",
     "viewed": "Đã xem",
     "hintBefore": "Nhấn để xem bạn nhận từ nào",
-    "hintAfter": "Hai từ gần giống để gây nhiễu",
     "words": {
       "civilian": "CÀ PHÊ",
       "spy": "TRÀ SỮA"
@@ -239,6 +238,7 @@
     "timerOff": "Tắt",
     "roundsLabel": "Số vòng mô tả",
     "waitingReady": "Đang chờ mọi người xem từ…",
+    "everyoneReady": "Mọi người đã sẵn sàng — chờ chủ phòng bắt đầu.",
     "startDescribing": "Bắt đầu mô tả",
     "yourTurnDescribe": "Lượt của bạn — nêu một gợi ý",
     "waitingTurn": "{name} đang mô tả…",
@@ -256,7 +256,6 @@
     "settings": "Cài đặt",
     "save": "Lưu",
     "maxPlayersLabel": "Số người tối đa",
-    "stayHint": "Ở lại phòng — chủ phòng có thể bắt đầu ván mới.",
     "disband": "Giải tán phòng",
     "disbandConfirmTitle": "Giải tán phòng này?",
     "disbandConfirmDesc": "Tất cả người chơi sẽ bị đưa ra khỏi phòng và phòng sẽ bị xóa vĩnh viễn. Không thể hoàn tác.",

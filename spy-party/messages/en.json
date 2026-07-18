@@ -86,7 +86,6 @@
     "switch": "Switch perspective",
     "viewed": "Viewed",
     "hintBefore": "Tap to see which word you got",
-    "hintAfter": "Two similar words to sow confusion",
     "words": {
       "civilian": "COFFEE",
       "spy": "BUBBLE TEA"
@@ -239,6 +238,7 @@
     "timerOff": "Off",
     "roundsLabel": "Describe rounds",
     "waitingReady": "Waiting for everyone to see their word…",
+    "everyoneReady": "Everyone's ready — waiting for the host to start.",
     "startDescribing": "Start describing",
     "yourTurnDescribe": "Your turn — give one clue",
     "waitingTurn": "{name} is describing…",
@@ -256,7 +256,6 @@
     "settings": "Settings",
     "save": "Save",
     "maxPlayersLabel": "Max players",
-    "stayHint": "Stay in the room — the host can start a new game.",
     "disband": "Disband room",
     "disbandConfirmTitle": "Disband this room?",
     "disbandConfirmDesc": "All players will be removed and this room will be permanently deleted. This cannot be undone.",
