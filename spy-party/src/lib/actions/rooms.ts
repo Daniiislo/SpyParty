@@ -52,8 +52,11 @@ type ActionResult =
  * clients still reconcile via the broadcast poke. Falls back to a plain `ok`
  * when the room vanished (deleted) — the client then refetches and leaves.
  */
-async function okWithView(code: string): Promise<ActionResult> {
-  const view = await getRoomView(code);
+async function okWithView(code: string, roomId: string): Promise<ActionResult> {
+  // Broadcast the poke and build the fresh view concurrently. Both are awaited
+  // (serverless kills unawaited work, and a dropped poke leaves other clients
+  // stale), but they needn't run serially on the response path.
+  const [view] = await Promise.all([getRoomView(code), broadcastRoom(roomId)]);
   return { ok: true, view: view ?? undefined };
 }
 
@@ -365,7 +368,9 @@ export async function createRoom(input: {
     "Host"
   ).slice(0, 24);
   const spyCount = Math.max(1, Math.min(3, Math.floor(input.spyCount || 1)));
-  const blindMode = input.blindMode === true;
+  // Blind mode is the default; only an explicit `false` reveals roles. Fails
+  // safe (omitted → blind) and matches the DB column default.
+  const blindMode = input.blindMode !== false;
   // Mr. White is incompatible with blind mode (having no word would give it
   // away), so blind mode always wins and disables it.
   const mrWhiteCount = !blindMode && input.mrWhiteCount === 1 ? 1 : 0;
@@ -501,8 +506,7 @@ export async function startMatch(code: string): Promise<ActionResult> {
       },
     }),
   ]);
-  await broadcastRoom(room.id);
-  return okWithView(code);
+  return okWithView(code, room.id);
 }
 
 /** A player acknowledges they've seen their word (gates the start of describing). */
@@ -517,8 +521,7 @@ export async function ackReady(code: string): Promise<ActionResult> {
     where: { matchId_playerId: { matchId: match.id, playerId: me.playerId } },
     data: { ready: true },
   });
-  await broadcastRoom(room.id);
-  return okWithView(code);
+  return okWithView(code, room.id);
 }
 
 /** Host starts the describe phase (turn order + first turn's timer). */
@@ -541,8 +544,7 @@ export async function startDescribing(code: string): Promise<ActionResult> {
       deadlineAt: deadlineFor(room.turnTimerSeconds),
     },
   });
-  await broadcastRoom(room.id);
-  return okWithView(code);
+  return okWithView(code, room.id);
 }
 
 /** Offline host reveals all roles + words, ending the deal-only match. */
@@ -568,8 +570,7 @@ export async function revealRoles(code: string): Promise<ActionResult> {
     }),
     prisma.room.update({ where: { id: room.id }, data: { status: "COMPLETED" } }),
   ]);
-  await broadcastRoom(room.id);
-  return okWithView(code);
+  return okWithView(code, room.id);
 }
 
 /** Submit the clue for the current turn (turn-enforced); advances the turn. */
@@ -585,8 +586,7 @@ export async function submitClue(code: string, text: string): Promise<ActionResu
   if (!clue) return { error: "empty" };
 
   await submitClueAndAdvance(room, match, me.playerId, clue);
-  await broadcastRoom(room.id);
-  return okWithView(code);
+  return okWithView(code, room.id);
 }
 
 /** Cast/replace this round's vote; resolves the round when all alive have voted. */
@@ -631,8 +631,7 @@ export async function castVote(
   if (votes.length >= aliveCount) {
     await resolveVotingRound(room, match, votes);
   }
-  await broadcastRoom(room.id);
-  return okWithView(code);
+  return okWithView(code, room.id);
 }
 
 /** The eliminated Mr. White guesses the civilian word to steal the win. */
@@ -665,8 +664,7 @@ export async function mrWhiteGuess(code: string, guess: string): Promise<ActionR
     const state = toGameState(room, match);
     await endOrNextRound(room, match, state, evaluateOutcome(state));
   }
-  await broadcastRoom(room.id);
-  return okWithView(code);
+  return okWithView(code, room.id);
 }
 
 /** Client watchdog: advance a timed phase whose server-side deadline has passed. */
@@ -681,8 +679,7 @@ export async function advanceIfExpired(code: string): Promise<ActionResult> {
   // advance the turn. Only the describe phase is timed.
   if (match.phase === "DESCRIBING" && match.currentTurnPlayerId) {
     await submitClueAndAdvance(room, match, match.currentTurnPlayerId, "—");
-    await broadcastRoom(room.id);
-    return okWithView(code);
+    return okWithView(code, room.id);
   }
   return { ok: true };
 }
@@ -699,8 +696,7 @@ export async function resolveVotingIfExpired(code: string): Promise<ActionResult
   if (!match || match.phase !== "VOTING" || !match.deadlineAt) return { ok: true };
   if (Date.now() < new Date(match.deadlineAt).getTime()) return { ok: true };
   await resolveVotingRound(room, match);
-  await broadcastRoom(room.id);
-  return okWithView(code);
+  return okWithView(code, room.id);
 }
 
 /** Host edits room settings while in the lobby. */
@@ -748,8 +744,7 @@ export async function updateSettings(
       maxPlayers: Math.max(3, Math.min(12, Math.floor(input.maxPlayers ?? room.maxPlayers))),
     },
   });
-  await broadcastRoom(room.id);
-  return okWithView(code);
+  return okWithView(code, room.id);
 }
 
 /** Host resets the room to the lobby for a rematch. */
@@ -759,8 +754,7 @@ export async function playAgain(code: string): Promise<ActionResult> {
   if (!room) return { error: "not_found" };
   if (!userId || room.hostUserId !== userId) return { error: "forbidden" };
   await prisma.room.update({ where: { id: room.id }, data: { status: "LOBBY" } });
-  await broadcastRoom(room.id);
-  return okWithView(code);
+  return okWithView(code, room.id);
 }
 
 /** Client-callable read: the room's secret-free public state. */

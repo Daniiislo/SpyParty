@@ -307,7 +307,8 @@ export function RoomClient({
                   variant="ghost"
                   className="h-10 gap-2 text-xs"
                   onClick={() =>
-                    act(async () => {
+                    // Navigates away — no view to apply, so skip act()'s refetch.
+                    startTransition(async () => {
                       await leaveRoom(code);
                       router.push("/");
                     })
