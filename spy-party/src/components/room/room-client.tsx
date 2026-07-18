@@ -136,7 +136,12 @@ export function RoomClient({
   // UI is waiting on.
   function actSilent(fn: () => Promise<unknown>) {
     void (async () => {
-      await applyResult(await fn());
+      try {
+        await applyResult(await fn());
+      } catch {
+        // Background sync failed (network / transient DB) — no user-facing error;
+        // the next realtime poke or timer tick reconciles state.
+      }
     })();
   }
 
