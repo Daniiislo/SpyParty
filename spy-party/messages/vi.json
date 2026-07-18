@@ -84,7 +84,7 @@
     "mrWhiteWord": "KHÔNG CÓ TỪ — TỰ SUY LUẬN",
     "decode": "Giải mã hồ sơ",
     "switch": "Đổi góc nhìn",
-    "memorized": "Tôi đã nhớ rồi",
+    "viewed": "Đã xem",
     "hintBefore": "Nhấn để xem bạn nhận từ nào",
     "hintAfter": "Hai từ gần giống để gây nhiễu",
     "words": {
@@ -241,7 +241,6 @@
     "timerLabel": "Hẹn giờ lượt",
     "timerOff": "Tắt",
     "roundsLabel": "Số vòng mô tả",
-    "ready": "Tôi đã xem từ",
     "waitingReady": "Đang chờ mọi người xem từ…",
     "startDescribing": "Bắt đầu mô tả",
     "yourTurnDescribe": "Lượt của bạn — nêu một gợi ý",

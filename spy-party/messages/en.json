@@ -84,7 +84,7 @@
     "mrWhiteWord": "NO WORD — INFER IT",
     "decode": "Decode dossier",
     "switch": "Switch perspective",
-    "memorized": "I've memorized it",
+    "viewed": "Viewed",
     "hintBefore": "Tap to see which word you got",
     "hintAfter": "Two similar words to sow confusion",
     "words": {
@@ -241,7 +241,6 @@
     "timerLabel": "Turn timer",
     "timerOff": "Off",
     "roundsLabel": "Describe rounds",
-    "ready": "I've seen my word",
     "waitingReady": "Waiting for everyone to see their word…",
     "startDescribing": "Start describing",
     "yourTurnDescribe": "Your turn — give one clue",

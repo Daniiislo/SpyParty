@@ -329,7 +329,9 @@ export function RoomClient({
               title="SPY PARTY"
               description={state.mode === "offline" ? t("offlinePlaying") : undefined}
             />
-            {card && !mePlayer?.ready && (
+            {card && (
+              // Stays mounted through dealing so the word remains readable after
+              // decoding; decoding is what marks the player ready (onDone).
               <DossierReveal
                 mode="reveal"
                 role={card.role ?? undefined}
@@ -361,13 +363,20 @@ export function RoomClient({
             </ul>
             {state.mode === "offline" ? (
               isHost ? (
-                <Button
-                  onClick={() => act(() => revealRoles(code))}
-                  disabled={pending}
-                  className="mt-2 h-12 w-full gap-2 text-sm font-semibold"
-                >
-                  <Eye className="size-4" /> {t("revealRoles")}
-                </Button>
+                <div className="mt-2 flex flex-col gap-2">
+                  <Button
+                    onClick={() => act(() => revealRoles(code))}
+                    disabled={pending || !state.allReady}
+                    className="h-12 w-full gap-2 text-sm font-semibold"
+                  >
+                    <Eye className="size-4" /> {t("revealRoles")}
+                  </Button>
+                  {!state.allReady && (
+                    <p className="text-classified text-center text-[11px] text-muted-foreground">
+                      {t("waitingReady")}
+                    </p>
+                  )}
+                </div>
               ) : (
                 <p className="text-classified mt-2 text-center text-[11px] text-muted-foreground">
                   {t("waitingReady")}

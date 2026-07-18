@@ -179,6 +179,14 @@ function deadlineFor(seconds: number | null | undefined): Date | null {
   return seconds && seconds > 0 ? new Date(Date.now() + seconds * 1000) : null;
 }
 
+/** True once every alive player has viewed their word (the DEALING ready-gate). */
+function allAliveReady(match: LoadedMatch): boolean {
+  const alive = match.matchPlayers.filter(
+    (mp: LoadedMatchPlayer) => mp.status === "ALIVE",
+  );
+  return alive.length > 0 && alive.every((mp: LoadedMatchPlayer) => mp.ready);
+}
+
 /** Alive playerIds in seat order (from a loaded room + match). */
 function aliveSortedIds(room: LoadedRoom, match: LoadedMatch): string[] {
   const alive = new Set(
@@ -521,6 +529,8 @@ export async function startDescribing(code: string): Promise<ActionResult> {
   if (!userId || room.hostUserId !== userId) return { error: "forbidden" };
   const match = room.matches[0];
   if (!match || match.phase !== "DEALING") return { error: "wrong_phase" };
+  // Everyone must have viewed their word first (mirrors the client gate).
+  if (!allAliveReady(match)) return { error: "not_ready" };
   const alive = aliveSortedIds(room, match);
   await prisma.match.update({
     where: { id: match.id },
@@ -543,6 +553,8 @@ export async function revealRoles(code: string): Promise<ActionResult> {
   if (!userId || room.hostUserId !== userId) return { error: "forbidden" };
   const match = room.matches[0];
   if (!match) return { error: "wrong_phase" };
+  // Offline reveal is gated on everyone having viewed their word, like online.
+  if (!allAliveReady(match)) return { error: "not_ready" };
   await prisma.$transaction([
     prisma.match.update({
       where: { id: match.id },

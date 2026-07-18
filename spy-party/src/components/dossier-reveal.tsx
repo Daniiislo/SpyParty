@@ -48,7 +48,7 @@ export interface DossierRevealProps {
    * no "you are the spy/civilian" badge — so the player must deduce their side.
    */
   blind?: boolean;
-  /** Called after the player confirms they memorized their word (reveal mode). */
+  /** Called once the player views (decodes) their word in reveal mode — viewing is all it takes to be marked ready. */
   onDone?: () => void;
 }
 
@@ -139,6 +139,9 @@ export function DossierReveal({
   function handleReveal() {
     setRevealed(true);
     scrambleTo(currentWord);
+    // Viewing (decoding) your word is all it takes to be marked ready — there is
+    // no separate "memorized" confirmation step.
+    if (isReveal) onDone?.();
   }
 
   function handleSwitch() {
@@ -254,13 +257,9 @@ export function DossierReveal({
           </Button>
         ) : isReveal ? (
           onDone ? (
-            <Button
-              onClick={onDone}
-              disabled={scrambling}
-              className="h-11 flex-1 gap-2"
-            >
-              <Check className="size-4" /> {t("memorized")}
-            </Button>
+            <span className="inline-flex h-11 flex-1 items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Check className="size-4 text-primary" /> {t("viewed")}
+            </span>
           ) : null
         ) : (
           <Button
