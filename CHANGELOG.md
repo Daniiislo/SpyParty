@@ -5,6 +5,33 @@ All notable changes to **Spy Party** (*Ai Là Gián Điệp*) are documented her
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] — 2026-07-18
+
+Lobby/gameplay bug fixes and UX polish.
+
+### Fixed
+- **Lobby topic name** now resolves from the database, so newly added topics
+  (e.g. "Công nghệ") display their name instead of "—" — in the config panel
+  (host and guests) and on the reveal card.
+- **Leaving via Home after a match** now removes a guest from the room, so the
+  host no longer sees a player who has already left (`leaveRoom` works in
+  `COMPLETED`, not only `LOBBY`).
+
+### Changed
+- **Removed the start-of-match "Mission Briefing" intro** — it flashed and
+  overlapped the game UI.
+- **No loading overlay for background actions.** Viewing your word and the timer
+  watchdogs refresh state silently; the overlay is reserved for user-initiated,
+  UI-changing submits.
+- **Clearer ready-state copy:** the dealing footer shows "Mọi người đã sẵn sàng
+  — chờ chủ phòng bắt đầu" once everyone has viewed, instead of always showing
+  "Đang chờ mọi người xem từ".
+- **Enter submits** the create (host name) and join (code / name) forms.
+- **Action buttons hug their content** instead of pinning to the bottom with a
+  gap; the page scrolls as content grows.
+- Dropped two noisy hints (the "two similar words" reveal note and the "stay in
+  the room" result note).
+
 ## [1.1.1] — 2026-07-18
 
 UX simplification and performance fixes.
@@ -134,6 +161,7 @@ word game playable end-to-end in both offline and online modes.
   `dev`/`main`.
 - Deployed on Vercel (`spy-party-vn`); `main` auto-deploys production.
 
+[1.1.2]: https://github.com/Daniiislo/SpyParty/releases/tag/v1.1.2
 [1.1.1]: https://github.com/Daniiislo/SpyParty/releases/tag/v1.1.1
 [1.1.0]: https://github.com/Daniiislo/SpyParty/releases/tag/v1.1.0
 [1.0.0]: https://github.com/Daniiislo/SpyParty/releases/tag/v1.0.0
