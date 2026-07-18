@@ -5,7 +5,7 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { readGuestPlayerId } from "@/lib/auth/guest-session";
 import type { Role } from "@/lib/game";
-import { getTopic, topicName as bankTopicName } from "@/lib/game/word-bank";
+import { resolveTopicName } from "@/lib/data/word-bank";
 
 export type PublicPhase =
   | "lobby"
@@ -145,8 +145,16 @@ export async function resolveCaller(room: LoadedRoom): Promise<Caller> {
   return { playerId: null, isHost: false, signedIn: !!userId };
 }
 
-/** Build the secret-free public state from an already-loaded room + resolved caller. */
-export function buildRoomState(room: LoadedRoom, me: Caller): RoomState {
+/**
+ * Build the secret-free public state from an already-loaded room + resolved
+ * caller. `topicName` is resolved by the async caller (DB-backed), so DB-only
+ * topics display correctly.
+ */
+export function buildRoomState(
+  room: LoadedRoom,
+  me: Caller,
+  topicName: string | null,
+): RoomState {
   const match = room.matches[0] ?? null;
   const round = match?.roundNumber ?? 1;
 
@@ -237,11 +245,7 @@ export function buildRoomState(room: LoadedRoom, me: Caller): RoomState {
     blindMode: room.blindMode,
     maxPlayers: room.maxPlayers,
     topicSlug: room.topicSlug,
-    topicName: (() => {
-      if (!room.topicSlug) return null;
-      const t = getTopic(room.topicSlug);
-      return t ? bankTopicName(t, room.gameLocale === "en" ? "en" : "vi") : null;
-    })(),
+    topicName,
     players,
     allReady: aliveTotal > 0 && aliveReady === aliveTotal,
     currentTurnPlayerId,
@@ -276,7 +280,12 @@ export function buildRoomState(room: LoadedRoom, me: Caller): RoomState {
 export async function getRoomState(code: string): Promise<RoomState | null> {
   const room = await loadRoom(code);
   if (!room) return null;
-  return buildRoomState(room, await resolveCaller(room));
+  const locale = room.gameLocale === "en" ? "en" : "vi";
+  const [me, topicName] = await Promise.all([
+    resolveCaller(room),
+    resolveTopicName(room.topicSlug, locale),
+  ]);
+  return buildRoomState(room, me, topicName);
 }
 
 /** Build the caller's own card from an already-loaded room + resolved caller. */
@@ -317,8 +326,12 @@ export interface RoomView {
 export async function getRoomView(code: string): Promise<RoomView | null> {
   const room = await loadRoom(code);
   if (!room) return null;
-  const me = await resolveCaller(room);
-  return { state: buildRoomState(room, me), card: buildMyCard(room, me) };
+  const locale = room.gameLocale === "en" ? "en" : "vi";
+  const [me, topicName] = await Promise.all([
+    resolveCaller(room),
+    resolveTopicName(room.topicSlug, locale),
+  ]);
+  return { state: buildRoomState(room, me, topicName), card: buildMyCard(room, me) };
 }
 
 export interface RoomConfig {

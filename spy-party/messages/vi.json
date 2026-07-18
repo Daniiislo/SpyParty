@@ -86,7 +86,6 @@
     "switch": "Đổi góc nhìn",
     "viewed": "Đã xem",
     "hintBefore": "Nhấn để xem bạn nhận từ nào",
-    "hintAfter": "Hai từ gần giống để gây nhiễu",
     "words": {
       "civilian": "CÀ PHÊ",
       "spy": "TRÀ SỮA"
@@ -224,9 +223,6 @@
     "errNotEnoughPlayers": "Chưa đủ người cho số gián điệp / Mr. White — hãy thêm người chơi.",
     "mrWhiteLabel": "Mr. White",
     "roomConfig": "Cấu hình phòng",
-    "briefingTitle": "Nhiệm vụ mật",
-    "briefingSubtitle": "Đang phân phát hồ sơ…",
-    "briefingHint": "Chạm để tiếp tục",
     "revealRoleLabel": "Hiện vai trò",
     "revealRoleDesc": "Mặc định ẩn vai: không ai biết mình là gián điệp hay người thường cho đến cuối trận. Bật để mỗi người thấy vai của mình khi xem từ.",
     "blindMrWhiteTitle": "Đã tắt Mr. White",
@@ -242,6 +238,7 @@
     "timerOff": "Tắt",
     "roundsLabel": "Số vòng mô tả",
     "waitingReady": "Đang chờ mọi người xem từ…",
+    "everyoneReady": "Mọi người đã sẵn sàng — chờ chủ phòng bắt đầu.",
     "startDescribing": "Bắt đầu mô tả",
     "yourTurnDescribe": "Lượt của bạn — nêu một gợi ý",
     "waitingTurn": "{name} đang mô tả…",
@@ -259,7 +256,6 @@
     "settings": "Cài đặt",
     "save": "Lưu",
     "maxPlayersLabel": "Số người tối đa",
-    "stayHint": "Ở lại phòng — chủ phòng có thể bắt đầu ván mới.",
     "disband": "Giải tán phòng",
     "disbandConfirmTitle": "Giải tán phòng này?",
     "disbandConfirmDesc": "Tất cả người chơi sẽ bị đưa ra khỏi phòng và phòng sẽ bị xóa vĩnh viễn. Không thể hoàn tác.",

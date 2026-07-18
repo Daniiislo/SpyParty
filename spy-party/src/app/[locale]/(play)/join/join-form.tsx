@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { type KeyboardEvent, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { Users } from "lucide-react";
 
@@ -42,6 +42,10 @@ export function JoinForm({ initialCode = "" }: { initialCode?: string }) {
     });
   }
 
+  function onEnterSubmit(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" && !pending && code.length >= 4 && name.trim()) submit();
+  }
+
   return (
     <main className="bg-blueprint relative flex min-h-dvh flex-col items-center justify-center px-4">
       <ActionOverlay active={pending} label={tc("loading")} />
@@ -61,6 +65,7 @@ export function JoinForm({ initialCode = "" }: { initialCode?: string }) {
             <Input
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase().slice(0, 6))}
+              onKeyDown={onEnterSubmit}
               placeholder="ABC123"
               autoCapitalize="characters"
               className="mt-2 h-12 text-center font-mono text-2xl tracking-[0.3em]"
@@ -73,6 +78,7 @@ export function JoinForm({ initialCode = "" }: { initialCode?: string }) {
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
+              onKeyDown={onEnterSubmit}
               placeholder={t("nameLabel")}
               maxLength={24}
               className="mt-2 h-11"

@@ -143,6 +143,9 @@ export function CreateRoomForm({
           <Input
             value={hostName}
             onChange={(e) => setHostName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !pending && topicSlug) submit();
+            }}
             placeholder={t("hostNameLabel")}
             maxLength={24}
             className="mt-2 h-11"

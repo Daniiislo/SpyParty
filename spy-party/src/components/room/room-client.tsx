@@ -51,7 +51,6 @@ import {
   submitClue,
 } from "@/lib/actions/rooms";
 import { TurnTimer } from "@/components/turn-timer";
-import { MissionBriefing } from "@/components/room/mission-briefing";
 import { RoomConfigPanel } from "@/components/room/room-config-panel";
 import type { MyCard, RoomState } from "@/lib/data/rooms";
 import type { TopicOption } from "@/lib/data/word-bank";
@@ -85,7 +84,6 @@ export function RoomClient({
   const [voteOpen, setVoteOpen] = useState(false);
   const [disbandOpen, setDisbandOpen] = useState(false);
   const [resultDismissed, setResultDismissed] = useState(false);
-  const [briefingDismissed, setBriefingDismissed] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -99,8 +97,6 @@ export function RoomClient({
     // Once the room moves past the final result (e.g. host starts a new game),
     // drop any "dismissed" flag so the next match's result shows again.
     if (s.phase !== "matchEnd") setResultDismissed(false);
-    // Re-arm the mission briefing so a fresh match replays its intro.
-    if (s.phase === "lobby") setBriefingDismissed(false);
     setState(s);
     setCard(c);
   }
@@ -113,23 +109,40 @@ export function RoomClient({
     void refetch();
   });
 
-  // Run a mutation. Hot mutations return the post-mutation `view`, so the acting
-  // client updates in a single round-trip; otherwise we fall back to a refetch.
+  // Apply a mutation's returned view (single round-trip); else fall back to a refetch.
+  async function applyResult(res: unknown) {
+    if (
+      res &&
+      typeof res === "object" &&
+      "view" in res &&
+      (res as { view?: { state: RoomState; card: MyCard | null } }).view
+    ) {
+      const v = (res as { view: { state: RoomState; card: MyCard | null } }).view;
+      applyView(v.state, v.card);
+    } else {
+      await refetch();
+    }
+  }
+
+  // User-initiated, UI-changing action — shows the loading overlay while pending.
   function act(fn: () => Promise<unknown>) {
     startTransition(async () => {
-      const res = await fn();
-      if (
-        res &&
-        typeof res === "object" &&
-        "view" in res &&
-        (res as { view?: { state: RoomState; card: MyCard | null } }).view
-      ) {
-        const v = (res as { view: { state: RoomState; card: MyCard | null } }).view;
-        applyView(v.state, v.card);
-      } else {
-        await refetch();
-      }
+      await applyResult(await fn());
     });
+  }
+
+  // Background sync (viewing your word, timer watchdogs) — refreshes state
+  // WITHOUT the loading overlay, since the user isn't submitting anything the
+  // UI is waiting on.
+  function actSilent(fn: () => Promise<unknown>) {
+    void (async () => {
+      try {
+        await applyResult(await fn());
+      } catch {
+        // Background sync failed (network / transient DB) — no user-facing error;
+        // the next realtime poke or timer tick reconciles state.
+      }
+    })();
   }
 
   function roleLabel(role: Role) {
@@ -139,6 +152,19 @@ export function RoomClient({
   const meId = state.me.playerId;
   const isHost = state.me.isHost;
   const mePlayer = meId ? state.players.find((p) => p.id === meId) : null;
+
+  // Going Home: a non-host guest leaves the room first (so they drop off the
+  // host's roster once the match is over); the host just navigates.
+  function goHome() {
+    if (isHost) {
+      router.push("/");
+      return;
+    }
+    startTransition(async () => {
+      await leaveRoom(code);
+      router.push("/");
+    });
+  }
 
   // Someone opened the room without joining (no cookie / not the host).
   if (!meId) {
@@ -157,9 +183,6 @@ export function RoomClient({
   return (
     <main className="bg-blueprint relative flex min-h-dvh flex-col">
       <ActionOverlay active={pending} label={tc("loading")} />
-      {state.phase === "dealing" && !briefingDismissed && (
-        <MissionBriefing onDone={() => setBriefingDismissed(true)} />
-      )}
       <div className="relative mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-10 sm:px-6 sm:py-14">
         {/* ── Lobby ── */}
         {state.phase === "lobby" && (
@@ -229,7 +252,7 @@ export function RoomClient({
             />
 
             {isHost ? (
-              <div className="mt-auto flex flex-col gap-2">
+              <div className="flex flex-col gap-2">
                 <Button
                   onClick={() =>
                     startTransition(async () => {
@@ -299,7 +322,7 @@ export function RoomClient({
                 </Dialog>
               </div>
             ) : (
-              <div className="mt-auto flex flex-col items-center gap-3">
+              <div className="flex flex-col items-center gap-3">
                 <p className="text-classified animate-glow-pulse rounded-full border border-border px-4 py-2 text-[11px] text-muted-foreground">
                   {t("waitingHost")}
                 </p>
@@ -339,7 +362,7 @@ export function RoomClient({
                 blind={card.blind}
                 word={card.word}
                 topic={state.topicName ?? undefined}
-                onDone={() => act(() => ackReady(code))}
+                onDone={() => actSilent(() => ackReady(code))}
               />
             )}
             <ul className="flex flex-col gap-2">
@@ -380,7 +403,7 @@ export function RoomClient({
                 </div>
               ) : (
                 <p className="text-classified mt-2 text-center text-[11px] text-muted-foreground">
-                  {t("waitingReady")}
+                  {state.allReady ? t("everyoneReady") : t("waitingReady")}
                 </p>
               )
             ) : (
@@ -395,7 +418,7 @@ export function RoomClient({
                 </Button>
               ) : (
                 <p className="text-classified mt-2 text-center text-[11px] text-muted-foreground">
-                  {t("waitingReady")}
+                  {state.allReady ? t("everyoneReady") : t("waitingReady")}
                 </p>
               ))
             )}
@@ -419,7 +442,7 @@ export function RoomClient({
                     <TurnTimer
                       deadlineAt={state.deadlineAt}
                       durationSeconds={state.turnTimerSeconds}
-                      onExpire={() => act(() => advanceIfExpired(code))}
+                      onExpire={() => actSilent(() => advanceIfExpired(code))}
                     />
                   </div>
                 )}
@@ -450,7 +473,7 @@ export function RoomClient({
                   ))}
                 </ul>
                 {myTurn && (
-                  <div className="mt-auto flex gap-2">
+                  <div className="flex gap-2">
                     <Input
                       value={clueText}
                       onChange={(e) => setClueText(e.target.value)}
@@ -500,7 +523,7 @@ export function RoomClient({
                 <TurnTimer
                   deadlineAt={state.deadlineAt}
                   durationSeconds={VOTE_TIMER_SECONDS}
-                  onExpire={() => act(() => resolveVotingIfExpired(code))}
+                  onExpire={() => actSilent(() => resolveVotingIfExpired(code))}
                 />
               </div>
             )}
@@ -576,7 +599,7 @@ export function RoomClient({
                 </ul>
               </div>
             )}
-            <div className="mt-auto">
+            <div>
               {mePlayer && !mePlayer.hasVoted ? (
                 <Dialog open={voteOpen} onOpenChange={setVoteOpen}>
                   <DialogTrigger asChild>
@@ -731,14 +754,11 @@ export function RoomClient({
                   </li>
                 ))}
               </ul>
-              <div className="mt-auto flex flex-col items-center gap-3">
-                <p className="text-classified animate-glow-pulse rounded-full border border-border px-4 py-2 text-[11px] text-muted-foreground">
-                  {t("stayHint")}
-                </p>
+              <div className="flex flex-col items-center gap-3">
                 <Button
                   variant="ghost"
                   className="h-10 gap-2 text-xs"
-                  onClick={() => router.push("/")}
+                  onClick={goHome}
                 >
                   <Home className="size-4" /> {t("backHome")}
                 </Button>
@@ -813,11 +833,6 @@ export function RoomClient({
                 ))}
               </ul>
             </div>
-            {!isHost && (
-              <p className="text-classified text-center text-[11px] text-muted-foreground">
-                {t("stayHint")}
-              </p>
-            )}
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
               {isHost && (
                 <Button
@@ -839,7 +854,7 @@ export function RoomClient({
               )}
               <Button
                 variant="outline"
-                onClick={() => router.push("/")}
+                onClick={goHome}
                 className="h-12 w-full gap-2 text-sm font-semibold sm:w-auto sm:px-6"
               >
                 <Home className="size-4" /> {t("backHome")}

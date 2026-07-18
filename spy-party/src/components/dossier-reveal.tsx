@@ -272,9 +272,11 @@ export function DossierReveal({
         )}
       </div>
 
-      <p className="text-classified mt-3 text-center text-[10px] text-muted-foreground">
-        {revealed ? t("hintAfter") : t("hintBefore")}
-      </p>
+      {!revealed && (
+        <p className="text-classified mt-3 text-center text-[10px] text-muted-foreground">
+          {t("hintBefore")}
+        </p>
+      )}
     </div>
   );
 }

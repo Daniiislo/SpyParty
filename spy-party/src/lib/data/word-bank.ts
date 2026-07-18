@@ -64,6 +64,32 @@ export async function getOfflineTopics(locale: BankLocale): Promise<TopicOption[
 }
 
 /**
+ * A topic's display name in the given locale — from Postgres (so DB-added topics
+ * like "Công nghệ" resolve), falling back to the in-repo bank, or `null` if the
+ * slug is unknown to both.
+ */
+export async function resolveTopicName(
+  slug: string | null,
+  locale: BankLocale,
+): Promise<string | null> {
+  if (!slug) return null;
+  const prisma = await tryPrisma();
+  if (prisma) {
+    try {
+      const row = await prisma.topic.findUnique({
+        where: { slug },
+        select: { nameVi: true, nameEn: true },
+      });
+      if (row) return locale === "en" ? row.nameEn : row.nameVi;
+    } catch {
+      // fall through to the in-repo bank
+    }
+  }
+  const local = getTopic(slug);
+  return local ? topicName(local, locale) : null;
+}
+
+/**
  * Deal one locale-resolved word pair for a topic — from Postgres, falling back
  * to the in-repo bank. Deterministic for a given `seed`.
  */

@@ -785,12 +785,15 @@ export async function disbandRoom(code: string): Promise<ActionResult> {
   return { ok: true };
 }
 
-/** A guest leaves the lobby. */
+/** A guest leaves the room — from the lobby or after a match (never mid-match). */
 export async function leaveRoom(code: string): Promise<ActionResult> {
   const room = await loadRoom(code);
   if (!room) return { error: "not_found" };
   const me = await resolveCaller(room);
-  if (me.playerId && !me.isHost && room.status === "LOBBY") {
+  // Allow leaving in LOBBY or after the match ends (COMPLETED), so a guest who
+  // goes Home from the result screen actually exits the host's roster. Not
+  // mid-match (IN_PROGRESS), which would disrupt an active game.
+  if (me.playerId && !me.isHost && room.status !== "IN_PROGRESS") {
     await prisma.player.delete({ where: { id: me.playerId } });
     await clearGuestCookie(room.code);
     await broadcastRoom(room.id);
