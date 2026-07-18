@@ -51,7 +51,6 @@ import {
   submitClue,
 } from "@/lib/actions/rooms";
 import { TurnTimer } from "@/components/turn-timer";
-import { MissionBriefing } from "@/components/room/mission-briefing";
 import { RoomConfigPanel } from "@/components/room/room-config-panel";
 import type { MyCard, RoomState } from "@/lib/data/rooms";
 import type { TopicOption } from "@/lib/data/word-bank";
@@ -85,7 +84,6 @@ export function RoomClient({
   const [voteOpen, setVoteOpen] = useState(false);
   const [disbandOpen, setDisbandOpen] = useState(false);
   const [resultDismissed, setResultDismissed] = useState(false);
-  const [briefingDismissed, setBriefingDismissed] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -99,8 +97,6 @@ export function RoomClient({
     // Once the room moves past the final result (e.g. host starts a new game),
     // drop any "dismissed" flag so the next match's result shows again.
     if (s.phase !== "matchEnd") setResultDismissed(false);
-    // Re-arm the mission briefing so a fresh match replays its intro.
-    if (s.phase === "lobby") setBriefingDismissed(false);
     setState(s);
     setCard(c);
   }
@@ -113,23 +109,35 @@ export function RoomClient({
     void refetch();
   });
 
-  // Run a mutation. Hot mutations return the post-mutation `view`, so the acting
-  // client updates in a single round-trip; otherwise we fall back to a refetch.
+  // Apply a mutation's returned view (single round-trip); else fall back to a refetch.
+  async function applyResult(res: unknown) {
+    if (
+      res &&
+      typeof res === "object" &&
+      "view" in res &&
+      (res as { view?: { state: RoomState; card: MyCard | null } }).view
+    ) {
+      const v = (res as { view: { state: RoomState; card: MyCard | null } }).view;
+      applyView(v.state, v.card);
+    } else {
+      await refetch();
+    }
+  }
+
+  // User-initiated, UI-changing action — shows the loading overlay while pending.
   function act(fn: () => Promise<unknown>) {
     startTransition(async () => {
-      const res = await fn();
-      if (
-        res &&
-        typeof res === "object" &&
-        "view" in res &&
-        (res as { view?: { state: RoomState; card: MyCard | null } }).view
-      ) {
-        const v = (res as { view: { state: RoomState; card: MyCard | null } }).view;
-        applyView(v.state, v.card);
-      } else {
-        await refetch();
-      }
+      await applyResult(await fn());
     });
+  }
+
+  // Background sync (viewing your word, timer watchdogs) — refreshes state
+  // WITHOUT the loading overlay, since the user isn't submitting anything the
+  // UI is waiting on.
+  function actSilent(fn: () => Promise<unknown>) {
+    void (async () => {
+      await applyResult(await fn());
+    })();
   }
 
   function roleLabel(role: Role) {
@@ -157,9 +165,6 @@ export function RoomClient({
   return (
     <main className="bg-blueprint relative flex min-h-dvh flex-col">
       <ActionOverlay active={pending} label={tc("loading")} />
-      {state.phase === "dealing" && !briefingDismissed && (
-        <MissionBriefing onDone={() => setBriefingDismissed(true)} />
-      )}
       <div className="relative mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-10 sm:px-6 sm:py-14">
         {/* ── Lobby ── */}
         {state.phase === "lobby" && (
@@ -339,7 +344,7 @@ export function RoomClient({
                 blind={card.blind}
                 word={card.word}
                 topic={state.topicName ?? undefined}
-                onDone={() => act(() => ackReady(code))}
+                onDone={() => actSilent(() => ackReady(code))}
               />
             )}
             <ul className="flex flex-col gap-2">
@@ -419,7 +424,7 @@ export function RoomClient({
                     <TurnTimer
                       deadlineAt={state.deadlineAt}
                       durationSeconds={state.turnTimerSeconds}
-                      onExpire={() => act(() => advanceIfExpired(code))}
+                      onExpire={() => actSilent(() => advanceIfExpired(code))}
                     />
                   </div>
                 )}
@@ -500,7 +505,7 @@ export function RoomClient({
                 <TurnTimer
                   deadlineAt={state.deadlineAt}
                   durationSeconds={VOTE_TIMER_SECONDS}
-                  onExpire={() => act(() => resolveVotingIfExpired(code))}
+                  onExpire={() => actSilent(() => resolveVotingIfExpired(code))}
                 />
               </div>
             )}
