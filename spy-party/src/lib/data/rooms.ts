@@ -170,7 +170,7 @@ export async function getRoomState(code: string): Promise<RoomState | null> {
     (a, b) =>
       a.roundNumber - b.roundNumber ||
       a.describeRound - b.describeRound ||
-      a.createdAt.getTime() - b.createdAt.getTime(),
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
   );
   for (const c of orderedClues) {
     const list = cluesByPlayer.get(c.playerId) ?? [];
@@ -193,7 +193,7 @@ export async function getRoomState(code: string): Promise<RoomState | null> {
     }
     return {
       id: p.id,
-      name: p.displayName,
+      name: (p as any).displayName || (p as any).name || "",
       seatOrder: p.seatOrder,
       isHost: p.isHost,
       alive,
