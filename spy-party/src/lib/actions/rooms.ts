@@ -8,6 +8,11 @@ import {
   readGuestPlayerId,
   setGuestCookie,
 } from "@/lib/auth/guest-session";
+import {
+  getMemoryRoom,
+  saveMemoryRoom,
+  type MemoryRoom,
+} from "@/lib/data/room-store";
 import { broadcastRoom } from "@/lib/supabase/server";
 import {
   generateCode,
@@ -318,13 +323,17 @@ export async function createRoom(input: {
 }): Promise<ActionResult> {
   const { userId } = await auth();
   if (!userId) return { error: "unauthorized" };
-  const user = await currentUser();
-  const hostName = (
-    input.hostName?.trim() ||
-    user?.firstName ||
-    user?.username ||
-    "Host"
-  ).slice(0, 24);
+  let hostName = input.hostName?.trim();
+  if (!hostName) {
+    try {
+      const user = await currentUser();
+      hostName = (user?.firstName || user?.username || "Host").slice(0, 24);
+    } catch {
+      hostName = "Host";
+    }
+  } else {
+    hostName = hostName.slice(0, 24);
+  }
   const spyCount = Math.max(1, Math.min(3, Math.floor(input.spyCount || 1)));
   const blindMode = input.blindMode === true;
   // Mr. White is incompatible with blind mode (having no word would give it
@@ -361,7 +370,42 @@ export async function createRoom(input: {
       return { ok: true, code: room.code };
     } catch (e) {
       if (isUniqueViolation(e)) continue;
-      throw e;
+      // DB connection/query error -> Fallback to in-memory room store
+      const roomId = `mem-${code}-${Date.now()}`;
+      const playerId = `p-${code}-host`;
+      const now = new Date();
+      const memRoom: MemoryRoom = {
+        id: roomId,
+        code,
+        status: "LOBBY",
+        hostUserId: userId,
+        mode,
+        spyCount,
+        mrWhiteCount,
+        blindMode,
+        turnTimerSeconds,
+        describeRounds,
+        maxPlayers: 10,
+        gameLocale: locale,
+        topicSlug: input.topicSlug || null,
+        createdAt: now,
+        updatedAt: now,
+        expiresAt: null,
+        players: [
+          {
+            id: playerId,
+            roomId,
+            displayName: hostName,
+            userId,
+            isHost: true,
+            seatOrder: 0,
+            createdAt: now,
+          },
+        ],
+        matches: [],
+      };
+      saveMemoryRoom(memRoom);
+      return { ok: true, code: memRoom.code };
     }
   }
   return { error: "code_generation_failed" };

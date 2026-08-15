@@ -109,19 +109,11 @@ function mapWinner(
         : "none";
 }
 
+import { loadRoomSafe } from "@/lib/data/room-store";
+
 /** Fetch a room + its latest match with everything needed to build state. */
 export async function loadRoom(code: string) {
-  return prisma.room.findUnique({
-    where: { code: code.toUpperCase() },
-    include: {
-      players: { orderBy: { seatOrder: "asc" } },
-      matches: {
-        orderBy: { createdAt: "desc" },
-        take: 1,
-        include: { matchPlayers: true, clues: true, votes: true },
-      },
-    },
-  });
+  return loadRoomSafe(code);
 }
 
 type LoadedRoom = NonNullable<Awaited<ReturnType<typeof loadRoom>>>;
