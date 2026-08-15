@@ -54,6 +54,9 @@ import {
 import { TurnTimer } from "@/components/turn-timer";
 import { MissionBriefing } from "@/components/room/mission-briefing";
 import { RoomConfigPanel } from "@/components/room/room-config-panel";
+import { EmoteOverlay } from "@/components/room/emote-overlay";
+import { EmotePickerBar } from "@/components/room/emote-picker-bar";
+import { useRoomEmotes, type ActiveEmote } from "@/hooks/use-room-emotes";
 import type { MyCard, RoomState } from "@/lib/data/rooms";
 import type { TopicOption } from "@/lib/data/word-bank";
 import { MIN_PLAYERS, VOTE_TIMER_SECONDS, type Role } from "@/lib/game";
@@ -105,9 +108,29 @@ export function RoomClient({
     setState(s);
     setCard(c);
   }
-  useRoomChannel(roomId, () => {
-    void refetch();
-  });
+  const meId = state.me.playerId;
+  const isHost = state.me.isHost;
+  const mePlayer = meId ? state.players.find((p) => p.id === meId) : null;
+  const meName = mePlayer?.name ?? "Agent";
+
+  const { emotes, addEmote, triggerEmote } = useRoomEmotes(
+    code,
+    roomId,
+    meId ?? "",
+    meName,
+  );
+
+  useRoomChannel(
+    roomId,
+    () => {
+      void refetch();
+    },
+    (payload) => {
+      if (payload && typeof payload === "object" && "id" in payload) {
+        addEmote(payload as ActiveEmote);
+      }
+    },
+  );
 
   function act(fn: () => Promise<unknown>) {
     startTransition(async () => {
@@ -119,10 +142,6 @@ export function RoomClient({
   function roleLabel(role: Role) {
     return role === "spy" ? tg("roleSpy") : role === "mrWhite" ? tg("roleMrWhite") : tg("roleCivilian");
   }
-
-  const meId = state.me.playerId;
-  const isHost = state.me.isHost;
-  const mePlayer = meId ? state.players.find((p) => p.id === meId) : null;
 
   // Someone opened the room without joining (no cookie / not the host).
   if (!meId) {
@@ -818,6 +837,8 @@ export function RoomClient({
           </div>
           ))}
       </div>
+      <EmoteOverlay emotes={emotes} />
+      <EmotePickerBar onSelectEmote={triggerEmote} />
     </main>
   );
 }

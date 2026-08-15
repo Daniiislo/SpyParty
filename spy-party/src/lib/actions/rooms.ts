@@ -754,3 +754,22 @@ export async function leaveRoom(code: string): Promise<ActionResult> {
   }
   return { ok: true };
 }
+
+/** Broadcast an emote to all clients in the room via Supabase Realtime fallback. */
+export async function sendRoomEmote(
+  code: string,
+  payload: {
+    id: string;
+    senderId: string;
+    senderName: string;
+    emoji: string;
+    xPercent: number;
+    createdAt: number;
+  },
+): Promise<ActionResult> {
+  const room = await prisma.room.findUnique({ where: { code: code.toUpperCase() } });
+  if (!room) return { error: "not_found" };
+  await broadcastRoom(room.id, "emote", payload);
+  return { ok: true };
+}
+
