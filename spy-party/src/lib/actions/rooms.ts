@@ -9,7 +9,9 @@ import {
   setGuestCookie,
 } from "@/lib/auth/guest-session";
 import {
+  addMemoryEmote,
   deleteMemoryRoom,
+  getMemoryEmotes,
   getMemoryRoom,
   saveMemoryRoom,
   type MemoryRoom,
@@ -1068,7 +1070,7 @@ export async function leaveRoom(code: string): Promise<ActionResult> {
   return { ok: true };
 }
 
-/** Broadcast an emote to all clients in the room via Supabase Realtime fallback. */
+/** Broadcast an emote to all clients in the room via Supabase Realtime + Memory Store. */
 export async function sendRoomEmote(
   code: string,
   payload: {
@@ -1082,6 +1084,15 @@ export async function sendRoomEmote(
 ): Promise<ActionResult> {
   const room = await loadRoom(code);
   if (!room) return { error: "not_found" };
+  addMemoryEmote(code, payload);
   await broadcastRoom(room.id, "emote", payload);
   return { ok: true };
+}
+
+/** Client-callable poll: get recent emotes broadcast to the room. */
+export async function fetchRoomEmotes(
+  code: string,
+  since: number = 0,
+) {
+  return getMemoryEmotes(code, since);
 }

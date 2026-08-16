@@ -126,3 +126,29 @@ export async function loadRoomSafe(code: string): Promise<MemoryRoom | null> {
   }
   return memoryRooms.get(cleanCode) ?? null;
 }
+
+export interface MemoryEmote {
+  id: string;
+  senderId: string;
+  senderName: string;
+  emoji: string;
+  xPercent: number;
+  createdAt: number;
+}
+
+const memoryEmotes = new Map<string, MemoryEmote[]>();
+
+export function addMemoryEmote(code: string, emote: MemoryEmote): void {
+  const cleanCode = code.toUpperCase();
+  const list = memoryEmotes.get(cleanCode) ?? [];
+  const now = Date.now();
+  const fresh = list.filter((e) => now - e.createdAt < 10000);
+  fresh.push(emote);
+  memoryEmotes.set(cleanCode, fresh);
+}
+
+export function getMemoryEmotes(code: string, since: number = 0): MemoryEmote[] {
+  const cleanCode = code.toUpperCase();
+  const list = memoryEmotes.get(cleanCode) ?? [];
+  return list.filter((e) => e.createdAt > since);
+}
