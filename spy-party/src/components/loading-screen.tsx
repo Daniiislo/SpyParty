@@ -59,7 +59,7 @@ export function LoadingScreen({
           SPY PARTY
         </span>
         <span className="text-classified animate-pulse text-[11px] text-muted-foreground motion-reduce:animate-none">
-          {label}
+          {label?.replace(/[…\.]+$/, "")}
           <span className="ml-0.5">…</span>
         </span>
       </div>

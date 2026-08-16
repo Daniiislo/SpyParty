@@ -44,7 +44,7 @@ export function JoinForm({ initialCode = "" }: { initialCode?: string }) {
 
   return (
     <main className="bg-blueprint relative flex min-h-dvh flex-col items-center justify-center px-4">
-      <ActionOverlay active={pending} label={tc("loading")} />
+      <ActionOverlay active={pending} label={t("joiningRoom")} />
       <div className="glow-hero pointer-events-none absolute inset-0" />
       <div className="relative w-full max-w-sm">
         <PhaseBanner
@@ -87,7 +87,7 @@ export function JoinForm({ initialCode = "" }: { initialCode?: string }) {
             disabled={pending || code.length < 4 || !name.trim()}
             className="h-12 w-full gap-2 text-sm font-semibold"
           >
-            <Users className="size-4" /> {pending ? tc("loading") : t("joinButton")}
+            <Users className="size-4" /> {pending ? t("joiningRoom") : t("joinButton")}
           </Button>
         </div>
       </div>
