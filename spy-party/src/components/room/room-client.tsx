@@ -91,6 +91,7 @@ export function RoomClient({
   const [resultDismissed, setResultDismissed] = useState(false);
   const [briefingDismissed, setBriefingDismissed] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+  const [startPending, setStartPending] = useState(false);
   const [pending, startTransition] = useTransition();
 
   async function refetch() {
@@ -159,7 +160,10 @@ export function RoomClient({
 
   return (
     <main className="bg-blueprint relative flex min-h-dvh flex-col">
-      <ActionOverlay active={pending} label={tc("loading")} />
+      <ActionOverlay
+        active={pending || (startPending && state.phase === "lobby")}
+        label={startPending ? t("startMatch") + "…" : tc("loading")}
+      />
       {state.phase === "dealing" && !briefingDismissed && (
         <MissionBriefing onDone={() => setBriefingDismissed(true)} />
       )}
@@ -234,9 +238,11 @@ export function RoomClient({
             {isHost ? (
               <div className="mt-auto flex flex-col gap-2">
                 <Button
-                  onClick={() =>
-                    startTransition(async () => {
-                      setStartError(null);
+                  onClick={async () => {
+                    if (startPending) return;
+                    setStartPending(true);
+                    setStartError(null);
+                    try {
                       const r = await startMatch(code);
                       if ("error" in r) {
                         setStartError(
@@ -245,14 +251,21 @@ export function RoomClient({
                             : t("errGeneric"),
                         );
                       } else {
-                        await refetch();
+                        // Optimistically flip to dealing phase immediately.
+                        // broadcastRoom() will trigger useRoomChannel → refetch()
+                        // for all clients (including host) to sync real server state.
+                        setState((prev) => ({ ...prev, phase: "dealing", status: "IN_PROGRESS" }));
                       }
-                    })
-                  }
-                  disabled={pending || state.players.length < MIN_PLAYERS}
+                    } finally {
+                      // Always clear the spinner — useTransition has no role here
+                      // so pending never gets stuck regardless of DB latency.
+                      setStartPending(false);
+                    }
+                  }}
+                  disabled={startPending || pending || state.players.length < MIN_PLAYERS}
                   className="h-12 w-full gap-2 text-sm font-semibold"
                 >
-                  <Radar className="size-4" /> {t("startMatch")}
+                  <Radar className="size-4" /> {startPending ? t("startMatch") : t("startMatch")}
                 </Button>
                 {state.players.length < MIN_PLAYERS && (
                   <p className="text-center text-xs text-muted-foreground">

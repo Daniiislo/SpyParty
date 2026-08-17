@@ -108,23 +108,34 @@ export function deleteMemoryRoom(code: string): void {
 /** Fetch room from DB with fallback to memoryRooms */
 export async function loadRoomSafe(code: string): Promise<MemoryRoom | null> {
   const cleanCode = code.toUpperCase();
+
+  // If we already have an in-memory copy, try DB first but only wait up to
+  // 3 seconds — avoids the host getting stuck on an infinite loading spinner
+  // when Postgres is unreachable (the DB write failed and the room exists only
+  // in memory).
+  const memFallback = memoryRooms.get(cleanCode) ?? null;
+  const DB_TIMEOUT_MS = memFallback ? 3000 : 10000;
+
   try {
-    const dbRoom = await prisma.room.findUnique({
-      where: { code: cleanCode },
-      include: {
-        players: { orderBy: { seatOrder: "asc" } },
-        matches: {
-          orderBy: { createdAt: "desc" },
-          take: 1,
-          include: { matchPlayers: true, clues: true, votes: true },
+    const dbRoom = await Promise.race([
+      prisma.room.findUnique({
+        where: { code: cleanCode },
+        include: {
+          players: { orderBy: { seatOrder: "asc" } },
+          matches: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            include: { matchPlayers: true, clues: true, votes: true },
+          },
         },
-      },
-    });
+      }),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), DB_TIMEOUT_MS)),
+    ]);
     if (dbRoom) return dbRoom as unknown as MemoryRoom;
   } catch {
     // Database connection or query error — fall through to memoryRooms
   }
-  return memoryRooms.get(cleanCode) ?? null;
+  return memFallback;
 }
 
 export interface MemoryEmote {

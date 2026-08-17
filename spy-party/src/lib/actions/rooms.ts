@@ -605,30 +605,43 @@ export async function startMatch(code: string): Promise<ActionResult> {
   const now = new Date();
   const matchId = `m-${room.code}-${Date.now()}`;
 
+  // Race the DB write against a 3-second timeout. If Postgres is unreachable
+  // the catch block immediately falls through to the in-memory store, so the
+  // server action returns in < 3 s instead of hanging until node-postgres times out.
+  let dbOk = false;
   try {
-    await prisma.$transaction([
-      prisma.room.update({ where: { id: room.id }, data: { status: "IN_PROGRESS" } }),
-      prisma.match.create({
-        data: {
-          roomId: room.id,
-          phase: "DEALING",
-          roundNumber: 1,
-          describeRound: 1,
-          seed,
-          civilianWord: wordPair.civilian,
-          spyWord: wordPair.spy,
-          matchPlayers: {
-            create: state.players.map((sp) => ({
-              playerId: sp.id,
-              role: toPrismaRole(sp.role),
-              word: sp.word,
-              status: "ALIVE",
-            })),
+    const result = await Promise.race([
+      prisma.$transaction([
+        prisma.room.update({ where: { id: room.id }, data: { status: "IN_PROGRESS" } }),
+        prisma.match.create({
+          data: {
+            roomId: room.id,
+            phase: "DEALING",
+            roundNumber: 1,
+            describeRound: 1,
+            seed,
+            civilianWord: wordPair.civilian,
+            spyWord: wordPair.spy,
+            matchPlayers: {
+              create: state.players.map((sp) => ({
+                playerId: sp.id,
+                role: toPrismaRole(sp.role),
+                word: sp.word,
+                status: "ALIVE",
+              })),
+            },
           },
-        },
-      }),
+        }),
+      ]),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
     ]);
+    dbOk = result !== null;
   } catch {
+    // DB threw — will fall through to memory write below
+  }
+
+  // If DB write failed or timed out, persist to in-memory store as fallback.
+  if (!dbOk) {
     const memRoom = getMemoryRoom(room.code);
     if (memRoom) {
       memRoom.status = "IN_PROGRESS";
@@ -668,7 +681,10 @@ export async function startMatch(code: string): Promise<ActionResult> {
     }
   }
 
-  await broadcastRoom(room.id);
+  // Fire-and-forget: broadcast is best-effort — clients also reconcile on
+  // reconnect, so a missed poke is safe. Not awaiting avoids adding network
+  // latency on top of an already potentially slow DB write.
+  void broadcastRoom(room.id);
   return { ok: true };
 }
 
