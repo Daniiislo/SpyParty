@@ -1,5 +1,6 @@
 import { clerkMiddleware } from "@clerk/nextjs/server";
 import createMiddleware from "next-intl/middleware";
+import type { NextRequest } from "next/server";
 import { routing } from "@/i18n/routing";
 
 const handleI18nRouting = createMiddleware(routing);
@@ -11,7 +12,7 @@ const handleI18nRouting = createMiddleware(routing);
 // Host-only gating (create room) is done in-page via `auth()` + a Clerk modal
 // (the app uses modal sign-in, no dedicated sign-in route), and every host
 // Server Action re-verifies `auth()` server-side — that is the real gate.
-export default clerkMiddleware((auth, req) => {
+export default clerkMiddleware((_auth, req: NextRequest) => {
   const { pathname } = req.nextUrl;
 
   // API, tRPC, and Clerk internal routes must NOT be locale-prefixed. Match those

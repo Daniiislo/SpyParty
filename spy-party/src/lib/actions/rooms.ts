@@ -127,27 +127,15 @@ function deadlineFor(seconds: number | null): Date | null {
 }
 
 async function persistMatchResult(matchId: string, winner: Side): Promise<void> {
-  let dbMatch: Awaited<
-    ReturnType<
-      typeof prisma.match.findUnique<{
-        include: {
-          room: { include: { players: true } };
-          matchPlayers: true;
-        };
-      }>
-    >
-  > = null;
-  try {
-    dbMatch = await prisma.match.findUnique({
+  const dbMatch = await prisma.match
+    .findUnique({
       where: { id: matchId },
       include: {
         room: { include: { players: true } },
         matchPlayers: true,
       },
-    });
-  } catch {
-    return;
-  }
+    })
+    .catch(() => null);
   if (!dbMatch) return;
 
   const room = dbMatch.room;
@@ -156,7 +144,7 @@ async function persistMatchResult(matchId: string, winner: Side): Promise<void> 
 
   try {
     for (const mp of dbMatch.matchPlayers) {
-      const p = room.players.find((pl) => pl.id === mp.playerId);
+      const p = room.players.find((pl: { id: string; userId: string | null; displayName: string }) => pl.id === mp.playerId);
       const earned = points[mp.playerId]?.points ?? 0;
       const isWin = points[mp.playerId]?.isWinner ?? false;
 
@@ -446,6 +434,7 @@ export async function createRoom(input: {
   } else {
     hostName = hostName.slice(0, 24);
   }
+  const finalHostName: string = hostName || "Host";
   const spyCount = Math.max(1, Math.min(3, Math.floor(input.spyCount || 1)));
   const blindMode = input.blindMode === true;
   const mrWhiteCount = !blindMode && input.mrWhiteCount === 1 ? 1 : 0;
@@ -473,7 +462,7 @@ export async function createRoom(input: {
           gameLocale: locale,
           topicSlug: input.topicSlug || null,
           players: {
-            create: { displayName: hostName, userId, isHost: true, seatOrder: 0 },
+            create: { displayName: finalHostName, userId, isHost: true, seatOrder: 0 },
           },
         },
       });
@@ -505,7 +494,7 @@ export async function createRoom(input: {
           {
             id: playerId,
             roomId,
-            displayName: hostName,
+            displayName: finalHostName,
             userId,
             isHost: true,
             seatOrder: 0,

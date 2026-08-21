@@ -46,7 +46,7 @@ export async function getOfflineTopics(locale: BankLocale): Promise<TopicOption[
         select: { slug: true, nameVi: true, nameEn: true, emoji: true },
       });
       if (rows.length > 0) {
-        return rows.map((r) => ({
+        return rows.map((r: { slug: string; nameVi: string; nameEn: string; emoji: string | null }) => ({
           slug: r.slug,
           name: locale === "en" ? r.nameEn : r.nameVi,
           emoji: r.emoji ?? "🗂️",
