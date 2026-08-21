@@ -22,7 +22,7 @@ export function useRoomEmotes(
 ) {
   const [emotes, setEmotes] = useState<ActiveEmote[]>([]);
   const lastSentRef = useRef<number>(0);
-  const lastSeenRef = useRef<number>(Date.now() - 5000);
+  const lastSeenRef = useRef<number>(0);
   const bcRef = useRef<BroadcastChannel | null>(null);
 
   const addEmote = useCallback((emote: ActiveEmote) => {
@@ -66,6 +66,9 @@ export function useRoomEmotes(
   // 2. Ultra-fast 400ms polling via lightweight /api/emotes Route Handler (no RSC re-render overhead)
   useEffect(() => {
     if (!code) return;
+    if (lastSeenRef.current === 0) {
+      lastSeenRef.current = Date.now() - 5000;
+    }
 
     const interval = setInterval(async () => {
       try {

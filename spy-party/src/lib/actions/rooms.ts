@@ -79,18 +79,18 @@ function toWinnerSide(
 }
 
 type LoadedRoom = NonNullable<Awaited<ReturnType<typeof loadRoom>>>;
-type LoadedPlayer = LoadedRoom["players"][number];
-type LoadedMatch = LoadedRoom["matches"][number];
-type LoadedMatchPlayer = LoadedMatch["matchPlayers"][number];
+export type LoadedPlayer = LoadedRoom["players"][number];
+export type LoadedMatch = LoadedRoom["matches"][number];
+export type LoadedMatchPlayer = LoadedMatch["matchPlayers"][number];
 
 /** Map DB/Memory rows to the engine's GameState for vote resolution. */
 function toGameState(room: LoadedRoom, match: LoadedMatch): GameState {
-  const byId = new Map(room.players.map((p: any) => [p.id, p] as const));
-  const players: PlayerState[] = match.matchPlayers.map((mp: any) => {
+  const byId = new Map(room.players.map((p) => [p.id, p] as const));
+  const players: PlayerState[] = match.matchPlayers.map((mp) => {
     const p = byId.get(mp.playerId);
     return {
       id: mp.playerId,
-      name: p?.displayName ?? p?.name ?? "?",
+      name: p?.displayName ?? "?",
       seatOrder: p?.seatOrder ?? 0,
       role: mapRole(mp.role),
       word: mp.word,
@@ -113,12 +113,12 @@ function toGameState(room: LoadedRoom, match: LoadedMatch): GameState {
 function aliveSortedIds(room: LoadedRoom, match: LoadedMatch): string[] {
   const alivePids = new Set(
     match.matchPlayers
-      .filter((mp: any) => mp.status === "ALIVE")
-      .map((mp: any) => mp.playerId),
+      .filter((mp) => mp.status === "ALIVE")
+      .map((mp) => mp.playerId),
   );
   return room.players
-    .filter((p: any) => alivePids.has(p.id))
-    .map((p: any) => p.id);
+    .filter((p) => alivePids.has(p.id))
+    .map((p) => p.id);
 }
 
 function deadlineFor(seconds: number | null): Date | null {
@@ -127,7 +127,16 @@ function deadlineFor(seconds: number | null): Date | null {
 }
 
 async function persistMatchResult(matchId: string, winner: Side): Promise<void> {
-  let dbMatch: any = null;
+  let dbMatch: Awaited<
+    ReturnType<
+      typeof prisma.match.findUnique<{
+        include: {
+          room: { include: { players: true } };
+          matchPlayers: true;
+        };
+      }>
+    >
+  > = null;
   try {
     dbMatch = await prisma.match.findUnique({
       where: { id: matchId },
@@ -147,7 +156,7 @@ async function persistMatchResult(matchId: string, winner: Side): Promise<void> 
 
   try {
     for (const mp of dbMatch.matchPlayers) {
-      const p = room.players.find((pl: any) => pl.id === mp.playerId);
+      const p = room.players.find((pl) => pl.id === mp.playerId);
       const earned = points[mp.playerId]?.points ?? 0;
       const isWin = points[mp.playerId]?.isWinner ?? false;
 
@@ -354,7 +363,7 @@ async function submitClueAndAdvance(
 
 async function resolveVotingRound(room: LoadedRoom, match: LoadedMatch): Promise<void> {
   const state = toGameState(room, match);
-  let votes: any[] = [];
+  let votes: { voterPlayerId: string; targetPlayerId: string | null }[] = [];
   try {
     votes = await prisma.vote.findMany({
       where: { matchId: match.id, roundNumber: match.roundNumber },
@@ -522,7 +531,7 @@ export async function joinRoom(code: string, name: string): Promise<ActionResult
 
   // Rejoin: a valid cookie for an existing player is idempotent.
   const existingPid = await readGuestPlayerId(room.code, room.id);
-  if (existingPid && room.players.some((p: any) => p.id === existingPid)) {
+  if (existingPid && room.players.some((p) => p.id === existingPid)) {
     return { ok: true, code: room.code };
   }
 
@@ -530,15 +539,15 @@ export async function joinRoom(code: string, name: string): Promise<ActionResult
   if (room.players.length >= MAX_PLAYERS) return { error: "room_full" };
   if (
     room.players.some(
-      (p: any) =>
-        (p.displayName || p.name || "").toLowerCase() === trimmed.toLowerCase(),
+      (p) =>
+        (p.displayName || "").toLowerCase() === trimmed.toLowerCase(),
     )
   )
     return { error: "name_taken" };
 
   const { userId } = await auth();
   const seatOrder =
-    room.players.reduce((m: number, p: any) => Math.max(m, p.seatOrder), -1) + 1;
+    room.players.reduce((m: number, p) => Math.max(m, p.seatOrder), -1) + 1;
   const newPlayerId = `p-${room.code}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   const now = new Date();
 
@@ -593,9 +602,9 @@ export async function startMatch(code: string): Promise<ActionResult> {
   const locale = room.gameLocale === "en" ? "en" : "vi";
   const wordPair = await getOfflinePair(room.topicSlug ?? "drinks", locale, seed);
   const state = deal({
-    players: room.players.map((p: any) => ({
+    players: room.players.map((p) => ({
       id: p.id,
-      name: p.displayName || p.name || "",
+      name: p.displayName || "",
     })),
     config: { spyCount, mrWhiteCount, maxRounds: n },
     wordPair,
@@ -818,10 +827,10 @@ export async function castVote(
   if (!match || match.phase !== "VOTING") return { error: "wrong_phase" };
   const me = await resolveCaller(room);
   if (!me.playerId) return { error: "not_a_player" };
-  const voter = match.matchPlayers.find((x: any) => x.playerId === me.playerId);
+  const voter = match.matchPlayers.find((x) => x.playerId === me.playerId);
   if (!voter || voter.status !== "ALIVE") return { error: "not_alive" };
   if (targetPlayerId) {
-    const t = match.matchPlayers.find((x: any) => x.playerId === targetPlayerId);
+    const t = match.matchPlayers.find((x) => x.playerId === targetPlayerId);
     if (!t || t.status !== "ALIVE") return { error: "bad_target" };
   }
 
@@ -862,8 +871,8 @@ export async function castVote(
     }
   }
 
-  const aliveCount = match.matchPlayers.filter((x: any) => x.status === "ALIVE").length;
-  let votes: any[] = [];
+  const aliveCount = match.matchPlayers.filter((x) => x.status === "ALIVE").length;
+  let votes: { voterPlayerId: string; targetPlayerId: string | null }[] = [];
   try {
     votes = await prisma.vote.findMany({
       where: { matchId: match.id, roundNumber: match.roundNumber },

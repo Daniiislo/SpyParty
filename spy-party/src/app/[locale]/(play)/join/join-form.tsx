@@ -22,7 +22,6 @@ const ERROR_KEYS: Record<string, string> = {
 
 export function JoinForm({ initialCode = "" }: { initialCode?: string }) {
   const t = useTranslations("online");
-  const tc = useTranslations("common");
   const router = useRouter();
 
   const [code, setCode] = useState(initialCode.toUpperCase());

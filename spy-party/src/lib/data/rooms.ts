@@ -193,7 +193,7 @@ export async function getRoomState(code: string): Promise<RoomState | null> {
     }
     return {
       id: p.id,
-      name: (p as any).displayName || (p as any).name || "",
+      name: p.displayName || "",
       seatOrder: p.seatOrder,
       isHost: p.isHost,
       alive,
