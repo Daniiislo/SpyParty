@@ -14,9 +14,29 @@ import { PrismaClient } from "@/generated/prisma/client";
 // `DATABASE_URL` is absent keeps `next build` safe in environments without a
 // database (e.g. CI) — a real query there would fail with a clear pg error,
 // which never happens at build because DB-backed routes are dynamic.
+function formatDatabaseUrl(urlStr: string | undefined): string {
+  if (!urlStr) return "";
+  try {
+    const lastAtIndex = urlStr.lastIndexOf("@");
+    if (lastAtIndex === -1) return urlStr;
+
+    const firstColonAfterProto = urlStr.indexOf(":", 11);
+    if (firstColonAfterProto === -1 || firstColonAfterProto > lastAtIndex) return urlStr;
+
+    const protocolAndUser = urlStr.slice(0, firstColonAfterProto + 1);
+    const pass = urlStr.slice(firstColonAfterProto + 1, lastAtIndex);
+    const hostAndRest = urlStr.slice(lastAtIndex);
+
+    const safePass = encodeURIComponent(decodeURIComponent(pass));
+    return `${protocolAndUser}${safePass}${hostAndRest}`;
+  } catch {
+    return urlStr;
+  }
+}
+
 const createPrismaClient = () =>
   new PrismaClient({
-    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL ?? "" }),
+    adapter: new PrismaPg({ connectionString: formatDatabaseUrl(process.env.DATABASE_URL) }),
   });
 
 // In dev, Next.js re-evaluates modules on every hot reload. Without caching the

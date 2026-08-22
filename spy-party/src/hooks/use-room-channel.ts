@@ -10,11 +10,18 @@ import { getSupabaseBrowser, roomChannelName } from "@/lib/supabase/client";
  * reconnect-reconciliation fallback. The callback is held in a ref so updating
  * it never re-subscribes.
  */
-export function useRoomChannel(roomId: string | null, onSync: () => void) {
+export function useRoomChannel(
+  roomId: string | null,
+  onSync: () => void,
+  onEmote?: (payload: unknown) => void,
+) {
   const cb = useRef(onSync);
+  const emoteCb = useRef(onEmote);
+
   useEffect(() => {
     cb.current = onSync;
-  }, [onSync]);
+    emoteCb.current = onEmote;
+  }, [onSync, onEmote]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -24,6 +31,9 @@ export function useRoomChannel(roomId: string | null, onSync: () => void) {
     const channel = supabase
       .channel(roomChannelName(roomId))
       .on("broadcast", { event: "sync" }, () => cb.current())
+      .on("broadcast", { event: "emote" }, ({ payload }) => {
+        if (emoteCb.current) emoteCb.current(payload);
+      })
       .subscribe();
 
     const onFocus = () => cb.current();

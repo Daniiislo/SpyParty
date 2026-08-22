@@ -109,19 +109,11 @@ function mapWinner(
         : "none";
 }
 
+import { loadRoomSafe } from "@/lib/data/room-store";
+
 /** Fetch a room + its latest match with everything needed to build state. */
 export async function loadRoom(code: string) {
-  return prisma.room.findUnique({
-    where: { code: code.toUpperCase() },
-    include: {
-      players: { orderBy: { seatOrder: "asc" } },
-      matches: {
-        orderBy: { createdAt: "desc" },
-        take: 1,
-        include: { matchPlayers: true, clues: true, votes: true },
-      },
-    },
-  });
+  return loadRoomSafe(code);
 }
 
 type LoadedRoom = NonNullable<Awaited<ReturnType<typeof loadRoom>>>;
@@ -178,7 +170,7 @@ export async function getRoomState(code: string): Promise<RoomState | null> {
     (a, b) =>
       a.roundNumber - b.roundNumber ||
       a.describeRound - b.describeRound ||
-      a.createdAt.getTime() - b.createdAt.getTime(),
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
   );
   for (const c of orderedClues) {
     const list = cluesByPlayer.get(c.playerId) ?? [];
@@ -201,7 +193,7 @@ export async function getRoomState(code: string): Promise<RoomState | null> {
     }
     return {
       id: p.id,
-      name: p.displayName,
+      name: p.displayName || "",
       seatOrder: p.seatOrder,
       isHost: p.isHost,
       alive,

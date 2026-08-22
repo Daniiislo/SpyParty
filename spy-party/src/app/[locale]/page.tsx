@@ -54,7 +54,7 @@ export default async function Home({ params }: PageProps<"/[locale]">) {
             </h1>
             <p className="mt-5 max-w-md text-base text-muted-foreground sm:text-lg">
               {hero.rich("tagline", {
-                hl: (chunks) => (
+                hl: (chunks: React.ReactNode) => (
                   <span className="text-foreground">{chunks}</span>
                 ),
               })}

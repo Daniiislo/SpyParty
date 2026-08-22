@@ -54,6 +54,9 @@ import {
 import { TurnTimer } from "@/components/turn-timer";
 import { MissionBriefing } from "@/components/room/mission-briefing";
 import { RoomConfigPanel } from "@/components/room/room-config-panel";
+import { EmoteOverlay } from "@/components/room/emote-overlay";
+import { EmotePickerBar } from "@/components/room/emote-picker-bar";
+import { useRoomEmotes, type ActiveEmote } from "@/hooks/use-room-emotes";
 import type { MyCard, RoomState } from "@/lib/data/rooms";
 import type { TopicOption } from "@/lib/data/word-bank";
 import { MIN_PLAYERS, VOTE_TIMER_SECONDS, type Role } from "@/lib/game";
@@ -88,6 +91,7 @@ export function RoomClient({
   const [resultDismissed, setResultDismissed] = useState(false);
   const [briefingDismissed, setBriefingDismissed] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+  const [startPending, setStartPending] = useState(false);
   const [pending, startTransition] = useTransition();
 
   async function refetch() {
@@ -105,9 +109,29 @@ export function RoomClient({
     setState(s);
     setCard(c);
   }
-  useRoomChannel(roomId, () => {
-    void refetch();
-  });
+  const meId = state.me.playerId;
+  const isHost = state.me.isHost;
+  const mePlayer = meId ? state.players.find((p) => p.id === meId) : null;
+  const meName = mePlayer?.name ?? "Agent";
+
+  const { emotes, addEmote, triggerEmote } = useRoomEmotes(
+    code,
+    roomId,
+    meId ?? "",
+    meName,
+  );
+
+  useRoomChannel(
+    roomId,
+    () => {
+      void refetch();
+    },
+    (payload) => {
+      if (payload && typeof payload === "object" && "id" in payload) {
+        addEmote(payload as ActiveEmote);
+      }
+    },
+  );
 
   function act(fn: () => Promise<unknown>) {
     startTransition(async () => {
@@ -119,10 +143,6 @@ export function RoomClient({
   function roleLabel(role: Role) {
     return role === "spy" ? tg("roleSpy") : role === "mrWhite" ? tg("roleMrWhite") : tg("roleCivilian");
   }
-
-  const meId = state.me.playerId;
-  const isHost = state.me.isHost;
-  const mePlayer = meId ? state.players.find((p) => p.id === meId) : null;
 
   // Someone opened the room without joining (no cookie / not the host).
   if (!meId) {
@@ -140,7 +160,10 @@ export function RoomClient({
 
   return (
     <main className="bg-blueprint relative flex min-h-dvh flex-col">
-      <ActionOverlay active={pending} label={tc("loading")} />
+      <ActionOverlay
+        active={pending || (startPending && state.phase === "lobby")}
+        label={startPending ? t("startMatch") + "…" : tc("loading")}
+      />
       {state.phase === "dealing" && !briefingDismissed && (
         <MissionBriefing onDone={() => setBriefingDismissed(true)} />
       )}
@@ -215,9 +238,11 @@ export function RoomClient({
             {isHost ? (
               <div className="mt-auto flex flex-col gap-2">
                 <Button
-                  onClick={() =>
-                    startTransition(async () => {
-                      setStartError(null);
+                  onClick={async () => {
+                    if (startPending) return;
+                    setStartPending(true);
+                    setStartError(null);
+                    try {
                       const r = await startMatch(code);
                       if ("error" in r) {
                         setStartError(
@@ -226,14 +251,21 @@ export function RoomClient({
                             : t("errGeneric"),
                         );
                       } else {
-                        await refetch();
+                        // Optimistically flip to dealing phase immediately.
+                        // broadcastRoom() will trigger useRoomChannel → refetch()
+                        // for all clients (including host) to sync real server state.
+                        setState((prev) => ({ ...prev, phase: "dealing", status: "IN_PROGRESS" }));
                       }
-                    })
-                  }
-                  disabled={pending || state.players.length < MIN_PLAYERS}
+                    } finally {
+                      // Always clear the spinner — useTransition has no role here
+                      // so pending never gets stuck regardless of DB latency.
+                      setStartPending(false);
+                    }
+                  }}
+                  disabled={startPending || pending || state.players.length < MIN_PLAYERS}
                   className="h-12 w-full gap-2 text-sm font-semibold"
                 >
-                  <Radar className="size-4" /> {t("startMatch")}
+                  <Radar className="size-4" /> {startPending ? t("startMatch") : t("startMatch")}
                 </Button>
                 {state.players.length < MIN_PLAYERS && (
                   <p className="text-center text-xs text-muted-foreground">
@@ -818,6 +850,8 @@ export function RoomClient({
           </div>
           ))}
       </div>
+      <EmoteOverlay emotes={emotes} />
+      <EmotePickerBar onSelectEmote={triggerEmote} />
     </main>
   );
 }

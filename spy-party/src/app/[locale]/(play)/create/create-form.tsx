@@ -79,7 +79,7 @@ export function CreateRoomForm({
 
   return (
     <main className="bg-blueprint relative flex min-h-dvh flex-col">
-      <ActionOverlay active={pending} label={tc("loading")} />
+      <ActionOverlay active={pending} label={t("creatingRoom")} />
       <Dialog open={conflictOpen} onOpenChange={setConflictOpen}>
         <DialogContent>
           <DialogHeader>
@@ -289,7 +289,7 @@ export function CreateRoomForm({
           disabled={pending || !topicSlug}
           className="mt-10 h-12 w-full gap-2 text-sm font-semibold"
         >
-          <Radar className="size-4" /> {pending ? tc("loading") : t("createButton")}
+          <Radar className="size-4" /> {pending ? t("creatingRoom") : t("createButton")}
         </Button>
       </div>
     </main>
